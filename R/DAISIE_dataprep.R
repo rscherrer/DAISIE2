@@ -527,48 +527,6 @@ error_too_many_missing_species_for_nonendemic <- function(clade) {
 #' Equilibrium and non-equilibrium dynamics simultaneously operate in the
 #' Galapagos islands. Ecology Letters 18: 844-852.
 #'
-#' @keywords models
-#' @examples
-#'
-#' ### Create Galapagos data object where all taxa have the same macroevolutionary process
-#'
-#' utils::data(Galapagos_datatable, package = "DAISIE")
-#' DAISIE_dataprep(
-#'    datatable = Galapagos_datatable,
-#'    island_age = 4,
-#'    M = 1000
-#' )
-#'
-#' ### Create Galapagos data object with a distinct macroevolutionary processes
-#' # for the Darwin's finches. One process applies to type 1 species (all species
-#' # except for Darwin's finches) and the other applies only to type 2 species
-#' # (Darwin's finches). Set fraction of potential colonists of type 2 to be
-#' # proportional to the number of type2 clades present on the island.
-#'
-#' utils::data(Galapagos_datatable, package = "DAISIE")
-#' DAISIE_dataprep(
-#'    datatable = Galapagos_datatable,
-#'    island_age = 4,
-#'    M = 1000,
-#'    n_clade_types = 2,
-#'    list_type2_clades = "Finches"
-#' )
-#'
-#' ### Create Galapagos data object with a distinct macroevolutionary processes
-#' # for the Darwin's finches. One process applies to type 1 species (all species
-#' # except for Darwin's finches) and the other applies only to type 2 species
-#' # (Darwin's finches). Set fraction of potential colonists of type 2 to be 0.163.
-#'
-#' utils::data(Galapagos_datatable, package = "DAISIE")
-#' DAISIE_dataprep(
-#'    datatable = Galapagos_datatable,
-#'    island_age = 4,
-#'    M = 1000,
-#'    n_clade_types = 2,
-#'    list_type2_clades = "Finches",
-#'    prop_type2_pool = 0.163
-#' )
-#'
 #' @export DAISIE_dataprep
 
 # Function to prepare the data

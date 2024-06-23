@@ -85,7 +85,6 @@ macroevolutionary process, \code{list_type2_clades}
 specifies the names of the clades that have a distinct macroevolutionary
 process. The names must match those in the \code{Clade_name} column of the source
 data table (e.g. \code{list_type2_clades = "Finches"}). If \code{NULL} (default),
-\code{NA} or an empty character string or vector (e.g. \code{""} or \code{c()}),
 no type 2 clades are considered.}
 
 \item{prop_type2_pool}{Specifies the fraction of potential mainland
@@ -176,48 +175,6 @@ for a template of an input table.)
 The output is an R list containing the data formatted to be run on other
 DAISIE functions.
 }
-\examples{
-
-### Create Galapagos data object where all taxa have the same macroevolutionary process
-
-utils::data(Galapagos_datatable, package = "DAISIE")
-DAISIE_dataprep(
-   datatable = Galapagos_datatable,
-   island_age = 4,
-   M = 1000
-)
-
-### Create Galapagos data object with a distinct macroevolutionary processes
-# for the Darwin's finches. One process applies to type 1 species (all species
-# except for Darwin's finches) and the other applies only to type 2 species
-# (Darwin's finches). Set fraction of potential colonists of type 2 to be
-# proportional to the number of type2 clades present on the island.
-
-utils::data(Galapagos_datatable, package = "DAISIE")
-DAISIE_dataprep(
-   datatable = Galapagos_datatable,
-   island_age = 4,
-   M = 1000,
-   n_clade_types = 2,
-   list_type2_clades = "Finches"
-)
-
-### Create Galapagos data object with a distinct macroevolutionary processes
-# for the Darwin's finches. One process applies to type 1 species (all species
-# except for Darwin's finches) and the other applies only to type 2 species
-# (Darwin's finches). Set fraction of potential colonists of type 2 to be 0.163.
-
-utils::data(Galapagos_datatable, package = "DAISIE")
-DAISIE_dataprep(
-   datatable = Galapagos_datatable,
-   island_age = 4,
-   M = 1000,
-   n_clade_types = 2,
-   list_type2_clades = "Finches",
-   prop_type2_pool = 0.163
-)
-
-}
 \references{
 Valente, L.M., A.B. Phillimore and R.S. Etienne (2015).
 Equilibrium and non-equilibrium dynamics simultaneously operate in the
@@ -226,4 +183,3 @@ Galapagos islands. Ecology Letters 18: 844-852.
 \author{
 Luis M. Valente
 }
-\keyword{models}
