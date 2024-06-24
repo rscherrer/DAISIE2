@@ -651,7 +651,12 @@ DAISIE_loglik <- function(
   #  usually island age), minimum colonization time and 0; length = 4;
   #  number of species should be 1
 
-  S <- 0 * (stac == 0) + (stac == 1 || stac == 4 || stac == 5 || stac == 8 || stac == 9) +
+
+
+  # What's that thing?
+
+  S <- 0 * (stac == 0) +
+    (stac == 1 || stac == 4 || stac == 5 || stac == 8 || stac == 9) +
     (length(brts) - 2) * (stac == 2) + (length(brts) - 1) * (stac == 3) +
     (length(brts) - 2) * (stac == 6) + (length(brts) - 1) * (stac == 7)
 
@@ -659,6 +664,9 @@ DAISIE_loglik <- function(
 
   loglik <- -lgamma(S2 + missnumspec + 1) +
     lgamma(S2 + 1) + lgamma(missnumspec + 1)
+
+
+
 
   if (min(pars1) < 0) {
 
@@ -728,7 +736,7 @@ DAISIE_loglik <- function(
         method = methode
       )
 
-      cp <- checkprobs2(lv = 2 * lx, loglik, probs, verbose)
+      cp <- DAISIE::checkprobs2(lv = 2 * lx, loglik, probs, verbose)
       loglik <- cp[[1]]
       probs <- cp[[2]]
 
@@ -787,7 +795,7 @@ DAISIE_loglik <- function(
             method = methode
           )
 
-          cp <- checkprobs2(lx, loglik, probs, verbose)
+          cp <- DAISIE::checkprobs2(lx, loglik, probs, verbose)
           loglik <- cp[[1]]
           probs <- cp[[2]]
 
@@ -940,7 +948,7 @@ DAISIE_loglik <- function(
                 method = methode
               )
 
-              cp <- checkprobs2(lx, loglik, probs, verbose)
+              cp <- DAISIE::checkprobs2(lx, loglik, probs, verbose)
               loglik = cp[[1]]
               probs = cp[[2]]
 

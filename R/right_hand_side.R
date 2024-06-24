@@ -1,9 +1,5 @@
 # Function to compute the right-hand side of the system
-right_hand_side <- function(
-
-    t, Q, pars, N, k = 0L
-
-) {
+right_hand_side <- function(t, Q, pars, N, k = 0L) {
 
   # t: time point (not used for the present ODEs, but still required)
   # Q: vector of state variables

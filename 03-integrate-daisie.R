@@ -1,119 +1,9 @@
-# Function to return names of model parameters
-par_names <- function() {
 
-  return(c("lambda_c", "mu", "gamma", "lambda_a"))
 
-}
-
-# Check parameters passed to a function
-check_pars <- function(pars) {
-
-  # Check that the object is a list
-  testit::assert(is.list(pars))
-
-  # Check that all the expected parameters are there
-  testit::assert(all(names(pars) %in% par_names()))
-  testit::assert(all(par_names() %in% names(pars)))
-
-  # Check that all parameters are positive numbers
-  testit::assert(is_number(unlist(pars), scalar = FALSE, sign = 1))
-
-}
-
-# Function to check that the timings are good
-check_times <- function(island_age, tcol, tmin, tmax, branching_times) {
-
-  # island_age: age of the island
-  # tcol: known colonization time (could be NULL)
-  # tmin: minimum colonization time (could be NULL)
-  # tmax: maximum colonization time (could be NULL)
-  # branching_times: vector of branching times (could be empty)
-
-  # Check that island age is a negative number
-  testit::assert(is_number(island_age, sign = -1))
-
-  # If known colonization time, upper and lower bounds should not be set
-  if (!is.null(tcol)) testit::assert(is.null(tmax) & is.null(tmin))
-
-  # If upper bound given, there should be no known colonization time
-  if (!is.null(tmax)) testit::assert(is.null(tcol))
-
-  # If a lower bound is given, then an upper bound should have been given too
-  if (!is.null(tmin)) testit::assert(!is.null(tmax))
-
-  # If no colonization at all, there cannot be any branching event
-  if (all(unlist(lapply(list(tcol, tmin, tmax), is.null))))
-    testit::assert(length(branching_times) == 0L)
-
-  # Check that the colonization times are all negative numbers
-  if (!is.null(tcol)) testit::assert(is_number(tcol, sign = -1))
-  if (!is.null(tmax)) testit::assert(is_number(tmax, sign = -1))
-  if (!is.null(tmin)) testit::assert(is_number(tmin, sign = -1))
-
-  # And that if provided branching times are too
-  if (length(branching_times) > 0L)
-    testit::assert(all(is_number(branching_times, scalar = FALSE, sign = -1)))
-
-  # Make sure that timings are in chronological order
-  times <- c(island_age, tmax, tcol, tmin, branching_times)
-  testit::assert(all(diff(times) > 0))
-
-}
-
-# Function to guess the number of observed species
-guess_k <- function(tcol, tmax, tmin, branching_times) {
-
-  # tcol: known colonization time
-  # tmax: upper bound for an unknown colonization time
-  # tmin: lower bound for an unknown colonization time
-  # branching_times: vector of times of cladogenesis events
-
-  # TODO: See if we do this k business better. Is it needed?
-
-  # If a clade has established, the size of that clade
-  if (length(branching_times) > 0L) return(length(branching_times) + 1L)
-
-  # Otherwise, if a colonization has happened for sure, k = 1
-  if (!is.null(tmin) | !is.null(tcol)) return(1L)
-
-  # Else k = 0
-  return(0L)
-
-}
-
-# Function to pick the likelihood of the data from the set of probabilities
-get_likelihood <- function(Qkn, QMkn, k, is_present, is_empty) {
-
-  # Qkn, QMkn: sets of integrated probabilities
-  # k: number of observed endemic species
-  # is_present: whether the mainland species is also present
-  # is_empty: did the clade leave no descendants at all?
-
-  # Note: k does not exactly allow to distinguish all cases, as an extant
-  # singleton with maximum colonization time and an empty clade both end
-  # with k = 0. So use is_empty for that.
-
-  # If the clade is absent...
-  if (is_empty) return(Qkn[1])
-
-  # Singleton where a certain (minimum) colonization time has been reached
-  if (k == 1L) return(ifelse(is_present, QMkn[1], Qkn[1]))
-
-  # Extant clade, depending on whether the mainland species is present
-  if (k > 1L) return(ifelse(is_present, QMkn[1], Qkn[1]))
-
-  # We are only left with the case of no extant species
-  testit::assert(k == 0L)
-
-  # Or because we have a singleton with maximum colonization time
-  return(ifelse(is_present, QMkn[1], Qkn[2]))
-
-}
-
-# Function to compute the likelihood
+# Function to integrate the dynamics throughout island life for a given clade
 integrate_daisie <- function(
 
-  island_age, pars, nmax, is_present = FALSE, tcol = NULL, branching_times = c(),
+  island_age, pars, nmax, tcol = NULL, branching_times = c(),
   tmax = NULL, tmin = NULL
 
 ) {
@@ -121,25 +11,10 @@ integrate_daisie <- function(
   # island_age: the age of the island
   # pars: list of model parameters
   # nmax: maximum allowed number of unobserved species
-  # is_present: is the mainland colonist present on the island?
   # tcol: known colonization time
   # branching_times: vector of times of cladogenesis events
   # tmax: upper bound for an unknown colonization time
   # tmin: lower bound for an unknown colonization time
-
-  # Check the list of parameters
-  check_pars(pars)
-
-  # Check that the maximum number of unobserved species is a positive number
-  testit::assert(is_number(nmax, scalar = TRUE, integer = TRUE, sign = 1))
-
-  # Check that the presence of the mainland species is either true or false
-  testit::assert(is.logical(is_present))
-  testit::assert(length(is_present) == 1L)
-  testit::assert(!is.na(is_present))
-
-  # Check the provided timings
-  check_times(island_age, tcol, tmin, tmax, branching_times)
 
   # The number of observed species we should get to at the end of the integration
   kend <- guess_k(tcol, tmax, tmin, branching_times)
@@ -148,7 +23,7 @@ integrate_daisie <- function(
   if (is.null(tmax)) tmax <- 1
   if (is.null(tmin)) tmin <- 1
   if (is.null(tcol)) tcol <- 1
-  if (length(branching_times) == 0L) branching_times <- 1
+  if (is.null(branching_times)) branching_times <- 1
 
   # Number of possible numbers of unobserved species (incl. zero)
   N <- nmax + 1L
@@ -182,17 +57,6 @@ integrate_daisie <- function(
   # Initialize the number of species
   k <- 0L
 
-  # Time points
-  time_points <- c(island_age, tmax, tcol, tmin, branching_times, 0)
-
-  # Remove those that will never be reached (those are set as positive values)
-  time_points <- time_points[time_points <= 0]
-
-  # Initialize an offset we will later add to the log-likelihood
-  offset <- 0
-
-  # Note: this avoids numerical issues.
-
   # Initialize time
   t <- island_age
 
@@ -201,6 +65,12 @@ integrate_daisie <- function(
 
   # Branching time iterator
   ibrt <- 1L
+
+  # Time points
+  time_points <- c(island_age, tmax, tcol, tmin, branching_times, 0)
+
+  # Remove those that will never be reached (those are set as positive values)
+  time_points <- time_points[time_points <= 0]
 
   # Set absurd previous time point (will be updated, defined here to catch bugs)
   tprev <- 1
@@ -348,16 +218,10 @@ integrate_daisie <- function(
 
     # TODO: Catch probabilities slightly smaller than zero here.
 
-    # Compute the sum of all probabilities
-    sumQ <- sum(Q)
-
-    # Use it to normalize the probabilities so they sum up to one
+    # Normalize the probabilities so they sum up to one (avoid numerical issues)
     Q <- Q / sum(Q)
 
-    # Also use it to update the running offset for the log-likelihood
-    offset <- offset + log(sumQ)
 
-    # Note: these two last steps are to avoid numerical issues.
 
     # Update time
     t <- tnext
@@ -380,25 +244,7 @@ integrate_daisie <- function(
   Qkn <- Q[iQkn][ii]
   QMkn <- Q[iQMkn][ii]
 
-  # Revert unspecified times to being empty (we used one as a trick)
-  if (tmax == 1) tmax <- NULL
-  if (tmin == 1) tmin <- NULL
-  if (tcol == 1) tcol <- NULL
-  if (length(branching_times) == 1L)
-    if (branching_times == 1)
-      branching_times <- c()
-
-  # TODO: This is dirty.
-
-  # Extract probability that corresponds to the likelihood
-  loglik <- get_likelihood(Qkn, QMkn, k, is_present, is_empty = is.null(tmax))
-
-  # Take its logarithm
-  loglik <- log(loglik)
-
-  # Add to it the offset we have prepared
-  loglik <- loglik + offset
-
-  return(loglik)
+  # Output
+  return(list(Qkn = Qkn, QMkn = QMkn, k = k))
 
 }
