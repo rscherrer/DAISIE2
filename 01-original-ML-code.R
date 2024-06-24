@@ -1199,6 +1199,8 @@ DAISIE_loglik_all <- function(
 
     }
 
+    # As many logp0 as there are missing species
+
     if (is.null(datalist[[1]]$not_present)) {
 
       # Type 2 stuff

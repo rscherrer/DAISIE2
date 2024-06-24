@@ -1,65 +1,3 @@
-# Function to return names of model parameters
-par_names <- function() {
-
-  return(c("lambda_c", "mu", "gamma", "lambda_a"))
-
-}
-
-# Check parameters passed to a function
-check_pars <- function(pars) {
-
-  # Check that the object is a list
-  testit::assert(is.list(pars))
-
-  # Check that all the expected parameters are there
-  testit::assert(all(names(pars) %in% par_names()))
-  testit::assert(all(par_names() %in% names(pars)))
-
-  # Check that all parameters are positive numbers
-  testit::assert(is_number(unlist(pars), scalar = FALSE, sign = 1))
-
-}
-
-# Function to check that the timings are good
-check_times <- function(island_age, tcol, tmin, tmax, branching_times) {
-
-  # island_age: age of the island
-  # tcol: known colonization time (could be NULL)
-  # tmin: minimum colonization time (could be NULL)
-  # tmax: maximum colonization time (could be NULL)
-  # branching_times: vector of branching times (could be empty)
-
-  # Check that island age is a negative number
-  testit::assert(is_number(island_age, sign = -1))
-
-  # If known colonization time, upper and lower bounds should not be set
-  if (!is.null(tcol)) testit::assert(is.null(tmax) & is.null(tmin))
-
-  # If upper bound given, there should be no known colonization time
-  if (!is.null(tmax)) testit::assert(is.null(tcol))
-
-  # If a lower bound is given, then an upper bound should have been given too
-  if (!is.null(tmin)) testit::assert(!is.null(tmax))
-
-  # If no colonization at all, there cannot be any branching event
-  if (all(unlist(lapply(list(tcol, tmin, tmax), is.null))))
-    testit::assert(length(branching_times) == 0L)
-
-  # Check that the colonization times are all negative numbers
-  if (!is.null(tcol)) testit::assert(is_number(tcol, sign = -1))
-  if (!is.null(tmax)) testit::assert(is_number(tmax, sign = -1))
-  if (!is.null(tmin)) testit::assert(is_number(tmin, sign = -1))
-
-  # And that if provided branching times are too
-  if (length(branching_times) > 0L)
-    testit::assert(all(is_number(branching_times, scalar = FALSE, sign = -1)))
-
-  # Make sure that timings are in chronological order
-  times <- c(island_age, tmax, tcol, tmin, branching_times)
-  testit::assert(all(diff(times) > 0))
-
-}
-
 # Function to guess the number of observed species
 guess_k <- function(tcol, tmax, tmin, branching_times) {
 
@@ -111,10 +49,10 @@ get_likelihood <- function(Qkn, QMkn, k, is_present, is_empty) {
 }
 
 # Function to compute the likelihood
-integrate_daisie <- function(
+integrate_clade <- function(
 
   island_age, pars, nmax, is_present = FALSE, tcol = NULL, branching_times = c(),
-  tmax = NULL, tmin = NULL
+  tmax = NULL, tmin = NULL, method = "lsodes", atol = 1e-16, rtol = 1e-10
 
 ) {
 
@@ -126,20 +64,9 @@ integrate_daisie <- function(
   # branching_times: vector of times of cladogenesis events
   # tmax: upper bound for an unknown colonization time
   # tmin: lower bound for an unknown colonization time
+  # method, atol, rtol: parameters for deSolve::ode
 
-  # Check the list of parameters
-  check_pars(pars)
-
-  # Check that the maximum number of unobserved species is a positive number
-  testit::assert(is_number(nmax, scalar = TRUE, integer = TRUE, sign = 1))
-
-  # Check that the presence of the mainland species is either true or false
-  testit::assert(is.logical(is_present))
-  testit::assert(length(is_present) == 1L)
-  testit::assert(!is.na(is_present))
-
-  # Check the provided timings
-  check_times(island_age, tcol, tmin, tmax, branching_times)
+  # TODO: Add checks to the method parameters? Or use ...?
 
   # The number of observed species we should get to at the end of the integration
   kend <- guess_k(tcol, tmax, tmin, branching_times)
@@ -341,7 +268,13 @@ integrate_daisie <- function(
     tnext <- time_points[inext]
 
     # Integrate the system from the present time to the next time point
-    Q <- deSolve::ode(Q, times = c(t, tnext), func = right_hand_side, parm = pars, N = N, k = k)
+    Q <- deSolve::ode(
+      Q,
+      times = c(t, tnext),
+      func = right_hand_side,
+      parm = pars, N = N, k = k,
+      method = method, atol = atol, rtol = rtol
+    )
 
     # Strip down to a final vector of probabilities
     Q <- unname(Q[-1, -1])
@@ -391,10 +324,10 @@ integrate_daisie <- function(
   # TODO: This is dirty.
 
   # Extract probability that corresponds to the likelihood
-  loglik <- get_likelihood(Qkn, QMkn, k, is_present, is_empty = is.null(tmax))
+  lik <- get_likelihood(Qkn, QMkn, k, is_present, is_empty = is.null(tmax))
 
   # Take its logarithm
-  loglik <- log(loglik)
+  loglik <- log(lik)
 
   # Add to it the offset we have prepared
   loglik <- loglik + offset
