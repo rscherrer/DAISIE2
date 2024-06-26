@@ -7,6 +7,8 @@ right_hand_side <- function(t, Q, pars, N, k = 0L) {
   # N: number of numbers of unobserved species (incl. zero)
   # k: number of observed species
 
+  # TODO: Could we pass the parameters separately to this function?
+
   # Number of variables per set (incl. padding)
   nps <- get_nps(N)
 
@@ -38,97 +40,92 @@ right_hand_side <- function(t, Q, pars, N, k = 0L) {
 
   # Note: deSolve requires this function to return a list.
 
-  # While being able to access the parameters directly by their name...
-  with(pars, {
+  # In case of a system with only two sets of equations...
+  if (nsets == 2L) {
 
-    # In case of a system with only two sets of equations...
-    if (nsets == 2L) {
+    # Compute the first set of derivatives
+    dQkn[ii] <- with(pars, lambda_c * (n + 2 * k - 1) * Qkn[ii - 1] +
+      lambda_a * QMkn[ii - 1] +
+      lambda_c * QMkn[ii - 2] +
+      mu * (n + k + 1) * Qkn[ii + 1] +
+      mu * QMkn[ii] -
+      (lambda_c + mu) * (n + k) * Qkn[ii] -
+      gamma * Qkn[ii])
 
-      # Compute the first set of derivatives
-      dQkn[ii] <- lambda_c * (n + 2 * k - 1) * Qkn[ii - 1] +
-        lambda_a * QMkn[ii - 1] +
-        lambda_c * QMkn[ii - 2] +
-        mu * (n + k + 1) * Qkn[ii + 1] +
-        mu * QMkn[ii] -
-        (lambda_c + mu) * (n + k) * Qkn[ii] -
-        gamma * Qkn[ii]
+    # Compute the second set of derivatives
+    dQMkn[ii] <- with(pars, gamma * Qkn[ii] +
+      lambda_c * (n + 2 * k - 1) * QMkn[ii - 1] +
+      mu * (n + 1) * QMkn[ii + 1] -
+      (lambda_a + lambda_c + mu) * QMkn[ii] -
+      (lambda_c + mu) * (n + k) * QMkn[ii])
 
-      # Compute the second set of derivatives
-      dQMkn[ii] <- gamma * Qkn[ii] +
-        lambda_c * (n + 2 * k - 1) * QMkn[ii - 1] +
-        mu * (n + 1) * QMkn[ii + 1] -
-        (lambda_a + lambda_c + mu) * QMkn[ii] -
-        (lambda_c + mu) * (n + k) * QMkn[ii]
+    return(list(c(dQkn, dQMkn)))
 
-      return(list(c(dQkn, dQMkn)))
+  } else if (nsets == 3L) {
 
-    } else if (nsets == 3L) {
+    # Otherwise, in case of three sets, compute the first set
+    dQkn[ii] <- with(pars, 2 * lambda_c * QkMn[ii - 1] +
+      lambda_a * QkMn[ii] +
+      lambda_c * (n + 1) * Qkn[ii - 1] +
+      lambda_a * QMkn[ii - 1] +
+      lambda_c * QMkn[ii - 2] +
+      mu * (n + 1) * Qkn[ii + 1] +
+      mu * QMkn[ii] -
+      (lambda_c + mu) * (n + 1) * Qkn[ii] -
+      gamma * Qkn[ii])
 
-      # Otherwise, in case of three sets, compute the first set
-      dQkn[ii] <- 2 * lambda_c * QkMn[ii - 1] +
-        lambda_a * QkMn[ii] +
-        lambda_c * (n + 1) * Qkn[ii - 1] +
-        lambda_a * QMkn[ii - 1] +
-        lambda_c * QMkn[ii - 2] +
-        mu * (n + 1) * Qkn[ii + 1] +
-        mu * QMkn[ii] -
-        (lambda_c + mu) * (n + 1) * Qkn[ii] -
-        gamma * Qkn[ii]
+    # Compute the second set of derivatives
+    dQMkn[ii] <- with(pars, gamma * Qkn[ii] +
+      lambda_c * (n + 1) * QMkn[ii - 1] +
+      mu * (n + 1) * QMkn[ii + 1] -
+      (lambda_a + lambda_c + mu) * QMkn[ii] -
+      (lambda_c + mu) * (n + 1) * QMkn[ii])
 
-      # Compute the second set of derivatives
-      dQMkn[ii] <- gamma * Qkn[ii] +
-        lambda_c * (n + 1) * QMkn[ii - 1] +
-        mu * (n + 1) * QMkn[ii + 1] -
-        (lambda_a + lambda_c + mu) * QMkn[ii] -
-        (lambda_c + mu) * (n + 1) * QMkn[ii]
+    # Compute the third set of derivatives
+    dQkMn[ii] <- with(pars, lambda_c * (n - 1) * QkMn[ii - 1] +
+      mu * (n + 1) * QkMn[ii + 1] -
+      (lambda_c + mu) * (n + 1) * QkMn[ii] -
+      (lambda_a + gamma) * QkMn[ii])
 
-      # Compute the third set of derivatives
-      dQkMn[ii] <- lambda_c * (n - 1) * QkMn[ii - 1] +
-        mu * (n + 1) * QkMn[ii + 1] -
-        (lambda_c + mu) * (n + 1) * QkMn[ii] -
-        (lambda_a + gamma) * QkMn[ii]
+    return(list(c(dQkn, dQMkn, dQkMn)))
 
-      return(list(c(dQkn, dQMkn, dQkMn)))
+  } else {
 
-    } else {
+    # Or else, there are four sets: compute the first set of derivatives
+    dQkn[ii] <- with(pars, lambda_c * (n - 1) * Qkn[ii - 1] +
+      lambda_a * QMkn[ii - 1] +
+      lambda_c * QMkn[ii - 2] +
+      mu * (n + 1) * Qkn[ii + 1] +
+      mu * QMkn[ii] -
+      (lambda_c + mu) * n * Qkn[ii] -
+      gamma * Qkn[ii])
 
-      # Or else, there are four sets: compute the first set of derivatives
-      dQkn[ii] <- lambda_c * (n - 1) * Qkn[ii - 1] +
-        lambda_a * QMkn[ii - 1] +
-        lambda_c * QMkn[ii - 2] +
-        mu * (n + 1) * Qkn[ii + 1] +
-        mu * QMkn[ii] -
-        (lambda_c + mu) * n * Qkn[ii] -
-        gamma * Qkn[ii]
+    # Compute the second set of derivatives
+    dQMkn[ii] <- with(pars, gamma * Qkn[ii] +
+      gamma * QkMn[ii] +
+      gamma * QMkMn[ii] +
+      lambda_c * (n - 1) * QMkn[ii - 1] +
+      mu * (n + 1) * QMkn[ii + 1] -
+      (lambda_a + lambda_c + mu) * QMkn[ii] -
+      (lambda_c + mu) * n * QMkn[ii])
 
-      # Compute the second set of derivatives
-      dQMkn[ii] <- gamma * Qkn[ii] +
-        gamma * QkMn[ii] +
-        gamma * QMkMn[ii] +
-        lambda_c * (n - 1) * QMkn[ii - 1] +
-        mu * (n + 1) * QMkn[ii + 1] -
-        (lambda_a + lambda_c + mu) * QMkn[ii] -
-        (lambda_c + mu) * n * QMkn[ii]
+    # Compute the third set of derivatives
+    dQkMn[ii] <- with(pars, lambda_c * (n - 1) * QkMn[ii - 1] +
+      lambda_a * QMkMn[ii - 1] +
+      lambda_c * QMkMn[ii - 2] +
+      mu * (n + 1) * QkMn[ii + 1] +
+      mu * QMkMn[ii] -
+      (lambda_c + mu) * n * QkMn[ii] -
+      gamma * QkMn[ii])
 
-      # Compute the third set of derivatives
-      dQkMn[ii] <- lambda_c * (n - 1) * QkMn[ii - 1] +
-        lambda_a * QMkMn[ii - 1] +
-        lambda_c * QMkMn[ii - 2] +
-        mu * (n + 1) * QkMn[ii + 1] +
-        mu * QMkMn[ii] -
-        (lambda_c + mu) * n * QkMn[ii] -
-        gamma * QkMn[ii]
+    # Compute the fourth set of derivatives
+    dQMkMn[ii] <- with(pars, lambda_c * (n - 1) * QMkMn[ii - 1] +
+      mu * (n + 1) * QMkMn[ii + 1] -
+      (lambda_a + lambda_c + mu) * QMkMn[ii] -
+      (lambda_c + mu) * n * QMkMn[ii] -
+      gamma * QMkMn[ii])
 
-      # Compute the fourth set of derivatives
-      dQMkMn[ii] <- lambda_c * (n - 1) * QMkMn[ii - 1] +
-        mu * (n + 1) * QMkMn[ii + 1] -
-        (lambda_a + lambda_c + mu) * QMkMn[ii] -
-        (lambda_c + mu) * n * QMkMn[ii] -
-        gamma * QMkMn[ii]
+    return(list(c(dQkn, dQMkn, dQkMn, dQMkMn)))
 
-      return(list(c(dQkn, dQMkn, dQkMn, dQMkMn)))
-
-    }
-
-  })
+  }
 }

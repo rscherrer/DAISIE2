@@ -11,9 +11,9 @@ par_names <- function() {
 # Check parameters passed to a function
 check_pars <- function(pars) {
 
-  # pars: the parameter list
+  # pars: the parameters
 
-  # Check that the object is a list
+  # Must be a list
   testit::assert(is.list(pars))
 
   # Parameters must be named
@@ -135,7 +135,7 @@ calc_loglik <- function(data, pars, island_age, M, nmax) {
   # Check the input data
   check_data(data)
 
-  # Check the list of parameters
+  # Check the parameters
   check_pars(pars)
 
   # Check that island age is a negative number (i.e. time ago)

@@ -57,7 +57,7 @@ integrate_clade <- function(
 ) {
 
   # island_age: the age of the island
-  # pars: list of model parameters
+  # pars: model parameters
   # nmax: maximum allowed number of unobserved species
   # is_present: is the mainland colonist present on the island?
   # tcol: known colonization time
