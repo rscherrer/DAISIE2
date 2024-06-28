@@ -1,4 +1,4 @@
-## Here test the likelihood function.
+## Here we test the likelihood maximization routine.
 
 # Create some data
 data <- list(
@@ -12,10 +12,9 @@ data <- list(
 # Parameter values
 pars <- list(lambda_c = 0.18, mu = 0.02, gamma = 0.02, lambda_a = 2)
 
-# The likelihood function should work
+# Use case
 test_that("Use case", {
 
-  # This should work
-  expect_true(is.numeric(calc_loglik(data, pars, island_age = -30, M = 100L, nmax = 10L)))
+  daisie_ml(data, pars, island_age = -30, M = 100, nmax = 10, optimmethod = "simplex")
 
 })
