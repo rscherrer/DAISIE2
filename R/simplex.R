@@ -1,5 +1,87 @@
+# Function to set the control options
+make_control <- function(options, n = 1L) {
+
+  # options: named list of user-specified options
+  # n: number of parameters to optimize
+
+  # Initial checks
+  testit::assert(is.list(options))
+  testit::assert(is_number(n, scalar = TRUE, integer = TRUE, sign = 1))
+
+  # Default control parameters
+  control <- list(
+
+    # Numerical tolerance parameters to check convergence
+    rtolx = 1e-4,
+    rtolf = 1e-5,
+    atolx = 1e-7,
+
+    # Maximum number of iterations
+    maxiter = 1000L * round((1.25)^n),
+
+    # By how much to shift the initial guesses to initialize the simplex (e.g. 0.05 for 5%)
+    delta = 0.05,
+
+    # Value by which to shift in case initial guess is zero
+    dzero = 0.00025,
+
+    # Geometric transformation parameters
+    rho = 1,
+    chi = 2,
+    psi = 0.5,
+    sigma = 0.5
+
+  )
+
+  # Return default parameters if nothing specified
+  if (length(options) == 0L) return(control)
+
+  # Check names in the input
+  testit::assert(!is.null(names(options)))
+  testit::assert(names(options) %in% names(control))
+
+  # Update non-default parameters
+  control[names(options)] <- options
+
+  return(control)
+
+}
+
+# Function to check the control parameters
+check_control <- function(control) {
+
+  # control: list containing the control parameters
+
+  # Check that it is a list
+  testit::assert(is.list(control))
+
+  # Names of the control parameters
+  control_names <- c(
+    "rtolx", "rtolf", "atolx", "maxiter", "delta", "dzero",
+    "rho", "chi", "psi", "sigma"
+  )
+
+  # Check that they are all here
+  testit::assert(all(names(control) %in% control_names))
+  testit::assert(all(control_names %in% names(control)))
+
+  # With the control parameters...
+  with(control, {
+
+    # Perform checks
+    testit::assert(is_number(rtolx, sign = 1))
+    testit::assert(is_number(rtolf, sign = 1))
+    testit::assert(is_number(atolx, sign = 1))
+    testit::assert(is_number(maxiter, integer = TRUE, sign = 1))
+    testit::assert(is_number(delta, sign = 1))
+    testit::assert(is_number(dzero))
+    testit::assert(all(is_number(c(rho, chi, psi, sigma), scalar = FALSE, sign = 1)))
+
+  })
+}
+
 # Function to update the worst vertex in the simplex
-update_vertex <- function(x, xbar, fun, fmin, fstm, fmax, rho, chi, psi, sigma) {
+update_vertex <- function(x, xbar, fun, fmin, fstm, fmax, rho, chi, psi, sigma, ...) {
 
   # x: coordinates of the worst vertex
   # xbar: centroid of the edge to flip along
@@ -8,6 +90,7 @@ update_vertex <- function(x, xbar, fun, fmin, fstm, fmax, rho, chi, psi, sigma) 
   # fstm: second-to-maximum score out of all vertices
   # fmax: maximum (i.e. worst) score out of all vertices
   # rho, chi, psi, sigma: update parameters
+  # ...: extra arguments for the function to be optimized
 
   # Checks that were not already performed
   testit::assert(is_number(x, scalar = FALSE))
@@ -76,40 +159,32 @@ update_vertex <- function(x, xbar, fun, fmin, fstm, fmax, rho, chi, psi, sigma) 
 # Function to compute (Nelder-Mead) simplex optimization
 simplex <- function(
 
-  fun, pars, rtolx, rtolf, atolx, maxiter, delta = 0.05, dzero = 0.00025,
-  rho = 1, chi = 2, psi = 0.5, sigma = 0.5, untrans = NULL, trans = NULL, ...
+  fun, pars, control = list(), untrans = NULL, trans = NULL, ...
 
 ) {
 
   # fun: the function (must take pars as first argument, not nec. with that name)
   # pars: vector of parameters to optimize
-  # rtolx, rtolf, atolx: numerical tolerance parameters
-  # maxiter: maximum number of iterations
-  # delta: the fraction by which to shift parameters to initialize the simplex (e.g. 0.05 for 5%)
-  # dzero: the value by which to dodge parameter values that are equal to zero
-  # rho, chi, psi, sigma: parameters of the geometrical transformation of the simplex
+  # control: a list of named options for the algorithm, as defined in control()
   # untrans: function to retrieve the parameters on their natural scale (the inverse of trans)
   # trans: function to return the parameters back to their transformed scale
   # ...: extra arguments of the function to optimize
 
-  # TODO: Replace sign with positive in use cases of is_number.
-
   # Checks
   testit::assert(is.function(fun))
   testit::assert(is_number(pars, scalar = FALSE))
-  testit::assert(is_number(rtolx, sign = 1))
-  testit::assert(is_number(rtolxf, sign = 1))
-  testit::assert(is_number(atolx, sign = 1))
-  testit::assert(is_number(maxiter, integer = TRUE, sign = 1))
-  testit::assert(is_number(delta, sign = 1))
-  testit::assert(is_number(dzero))
-  testit::assert(all(is_number(c(rho, chi, psi, sigma), scalar = FALSE, sign = 1)))
 
-  # If one transformation is provided both must be
+  # If one transformation is provided then both must be
   testit::assert(is.function(trans) == is.function(untrans))
 
   # Number of parameters (i.e. dimensions)
   n <- length(pars)
+
+  # Update default options with user choices
+  control <- make_control(control, n)
+
+  # Check the control parameters
+  check_control(control)
 
   # Number of vertices
   nvertices <- n + 1L
@@ -118,7 +193,7 @@ simplex <- function(
   v <- matrix(rep(pars, nvertices), nrow = n)
 
   # Ratio by which to dodge each vertex dimension
-  r0 <- 1 + delta
+  r0 <- 1 + control$delta
 
   # Make a copy of the parameters
   dpars <- pars
@@ -152,10 +227,12 @@ simplex <- function(
   v[ii] <- r * v[ii]
 
   # Small deviation for zero-values coordinates
-  v[ii][v[ii] == 0] <- dzero
+  v[ii][v[ii] == 0] <- control$dzero
 
   # Compute the function for each vertex
   fv <- apply(v, 2L, \(x) { -fun(x, ...) })
+
+  # TODO: Make this work with named vectors of parameters
 
   # Note: this algorithm finds maximizes a function by finding the minimum
   # of its negative.
@@ -169,7 +246,7 @@ simplex <- function(
   # Note: this way the last vertex is the worst one.
 
   # For each iteration...
-  for (iter in 1:maxiter) {
+  for (iter in 1:control$maxiter) {
 
     # Compute useful metrics for convergence checking
     maxdf <- max(abs(fv - fv[1]))
@@ -179,8 +256,8 @@ simplex <- function(
     # and the first one.
 
     # Measure convergence in both function evaluation and simplex coordinates
-    is_conf <- !is.nan(maxdf) & maxdf <= rtolf * abs(fv[1])
-    is_conv <- max(dv - rtolx * abs(v2)) <= 0 & max(dv) <= atolx
+    is_conf <- !is.nan(maxdf) & maxdf <= control$rtolf * abs(fv[1])
+    is_conv <- max(dv - control$rtolx * abs(v[, 1])) <= 0 & max(dv) <= control$atolx
 
     # Break the loop if convergence is reached
     if (is_conf | is_conv) break
@@ -194,10 +271,15 @@ simplex <- function(
 
     # Figure how to update the worst vertex
     newv <- update_vertex(
+
       v[, nvertices], xbar, fun,
-      fmin = fv[1], fstm = fv[n], fmax = fv[np1],
-      rho, chi, psi, sigma
+      fmin = fv[1], fstm = fv[n], fmax = fv[nvertices],
+      control$rho, control$chi, control$psi, control$sigma,
+      ...
+
     )
+
+    # TODO: What if the function take arguments named the same?
 
     # If the simplex must be shrunk...
     if (newv$how == "shrink") {
@@ -206,7 +288,7 @@ simplex <- function(
       kk <- 2:nvertices
 
       # Shrink the simplex by shifting that vertex towards the best one
-      v[, kk] <- v[, 1] + sigma * (v[, kk] - v[, 1])
+      v[, kk] <- v[, 1] + control$sigma * (v[, kk] - v[, 1])
       fv[kk] = -fun(pars = v[, kk], ...)
 
     } else {
@@ -236,7 +318,7 @@ simplex <- function(
     fvalue = -fv[1],
 
     # Whether convergence has been reached
-    conv = iter < maxiter
+    conv = iter < control$maxiter
 
   ))
 

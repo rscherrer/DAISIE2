@@ -22,6 +22,8 @@ is_number <- function(x, scalar = TRUE, integer = FALSE, sign = NULL, strict = F
   # sign: number(s) that if provided, whether x is of the same sign (e.g. -1 or c(1, -1, 0))
   # strict: whether numbers should be considered only if strictly of that sign (i.e. zero does not count as positive and negative)
 
+  # TODO: Replace sign with positive in use cases of is_number.
+
   # Sanity check
   testit::assert(is.logical(scalar))
 

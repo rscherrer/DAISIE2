@@ -160,30 +160,10 @@ daisie_ml <- function(
   # Check that the maximum number of unobserved species is a positive number
   testit::assert(is_number(nmax, scalar = TRUE, integer = TRUE, sign = 1))
 
-  # We must turn the parameters into a vector for DDD::optimizer
+  # We must turn the parameters into a vector
   pars <- unlist(pars)
 
-  simplex
+  # Optimize the likelihood function
+  out <- simplex(fun = calc_loglik, pars, island_age, M, nmax, ...)
 
-  # Perform the likelihood search
-  optimizer(
-
-    # The likelihood function
-    fun = calc_loglik,
-
-    # Vector of initial guesses for parameter values
-    trparsopt = pars,
-
-    # Other arguments of the likelihood function
-    island_age = island_age,
-    M = M,
-    nmax = nmax,
-
-    # Parameters of the optimizer
-    optimmethod = optimmethod,
-    optimpars = c(tol, maxiter),
-    num_cycles = num_cycles,
-    jitter = jitter
-
-  )
 }

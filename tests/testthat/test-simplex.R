@@ -1,0 +1,32 @@
+## Here we test that the simplex optimization routine works.
+
+# Function implementing the bivariate quadratic formula
+biquadratic <- function(pars, a = 1, b = 1, c = 1, d = 1, e = 1, f = 1) {
+
+  # pars: the two variables
+  # a...f: coefficients of the polynomial
+
+  # Extract the two variables
+  x <- pars[1]
+  y <- pars[2]
+
+  return(a * x^2 + b * y^2 + c * x * y + d * x + e * y + f)
+
+}
+
+# Check that we can find the maximum of a well-known function
+test_that("Simplex on bivariate quadratic formula", {
+
+  # Precise control
+  control <- list(rtolx = 1e-6, rtolf = 1e-7, atolx = 1e-9)
+
+  # Find the parameter values that maximize the function
+  sol <- simplex(biquadratic, c(x = -10, y = -10), a = -1, b = -1, control = control)
+
+  # Note: with a and b being negative there is a clear maximum.
+
+  # Check that we have found the right maximum
+  expect_true(all(round(sol$pars, 3L) == 1))
+  expect_equal(round(sol$fvalue, 6L), 2)
+
+})
