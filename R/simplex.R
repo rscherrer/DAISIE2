@@ -80,8 +80,32 @@ check_control <- function(control) {
   })
 }
 
+# Wrapper around a function to avoid argument collision between environments
+call_fun <- function(fun, x, extra = list()) {
+
+  # fun: the function to call
+  # x: the first argument
+  # extra: list with all the other arguments
+
+  # Call the function
+  do.call(fun, c(list(x), extra))
+
+}
+
+# Function to return a list of information for a new vertex
+new_vertex <- function(vertex, fvalue, how) {
+
+  # vertex: the coordinates of the vertex
+  # fvalue: the function value at that vertex
+  # how: what geometric transformation does that vertex correspond to?
+
+  # Combine the info into a list
+  return(list(vertex = vertex, fvalue = fvalue, how = how))
+
+}
+
 # Function to update the worst vertex in the simplex
-update_vertex <- function(x, xbar, fun, fmin, fstm, fmax, rho, chi, psi, sigma, ...) {
+get_updated_vertex <- function(x, xbar, fun, fmin, fstm, fmax, rho, chi, psi, sigma, extra = list()) {
 
   # x: coordinates of the worst vertex
   # xbar: centroid of the edge to flip along
@@ -90,7 +114,7 @@ update_vertex <- function(x, xbar, fun, fmin, fstm, fmax, rho, chi, psi, sigma, 
   # fstm: second-to-maximum score out of all vertices
   # fmax: maximum (i.e. worst) score out of all vertices
   # rho, chi, psi, sigma: update parameters
-  # ...: extra arguments for the function to be optimized
+  # extra: named list of extra arguments for the function to be optimized
 
   # Checks that were not already performed
   testit::assert(is_number(x, scalar = FALSE))
@@ -106,20 +130,24 @@ update_vertex <- function(x, xbar, fun, fmin, fstm, fmax, rho, chi, psi, sigma, 
 
   # Find the reflection of the worst point wrt the centroid
   xr <- (1 + rho) * xbar - rho * x
-  fxr <- -fun(xr, ...)
+  fxr <- -call_fun(fun, xr, extra)
+
+  # TODO: Can we avoid passing the function so many times?
+
+  # TODO: Does that mean we can make it work with lists of parameters?
 
   # Set reflection as our new prospect
-  out <- list(x = xr, fv = fxr, how = "reflect")
+  out <- new_vertex(xr, fxr, how = "reflect")
 
   # If the reflection is a new minimum...
   if (fxr < fmin) {
 
     # Expand it to see if we can minimize further
     xe <- (1 + rho * chi) * xbar - rho * chi * x
-    fxe <- -fun(xe, ...)
+    fxe <- -call_fun(fun, xe, extra)
 
     # Return the expansion if smaller
-    if (fxe < fxr) return(list(x = xe, fv = fxe, how = "expand"))
+    if (fxe < fxr) return(new_vertex(xe, fxe, how = "expand"))
 
     # Otherwise stick with the reflection
     return(out)
@@ -134,41 +162,41 @@ update_vertex <- function(x, xbar, fun, fmin, fstm, fmax, rho, chi, psi, sigma, 
 
     # Contract the worst vertex
     xco <- (1 + psi * rho) * xbar - psi * rho * x
-    fxco <- -fun(xco, ...)
+    fxco <- -call_fun(fun, xco, extra)
 
     # Keep the contraction if it does better
-    if (fxco <= fxr) return(list(x = xco, fv = fxco, how = "contract_outside"))
+    if (fxco <= fxr) return(new_vertex(xco, fxco, how = "contract_outside"))
 
     # Otherwise shrink the simplex
-    return(list(x = NULL, fv = NULL, how = "shrink"))
+    return(new_vertex(NULL, NULL, how = "shrink"))
 
   }
 
   # If the reflection was the worst, then compute the inside contraction
   xci <- (1 - psi) * xbar + psi * x
-  fxci <- -fun(xci, ...)
+  fxci <- -call_fun(fun, xci, extra)
 
   # Keep this contraction if it does better
-  if (fxci < fmax) return(list(x = xci, fv = fxci, how = "contract_inside"))
+  if (fxci < fmax) return(new_vertex(xci, fxci, how = "contract_inside"))
 
   # Otherwise shrink the simplex
-  return(list(x = NULL, fv = NULL, how = "shrink"))
+  return(new_vertex(NULL, NULL, "shrink"))
 
 }
 
 # Function to compute (Nelder-Mead) simplex optimization
 simplex <- function(
 
-  fun, pars, control = list(), untrans = NULL, trans = NULL, ...
+  fun, pars, control = list(), untrans = NULL, trans = NULL, extra = list()
 
 ) {
 
   # fun: the function (must take pars as first argument, not nec. with that name)
-  # pars: vector of parameters to optimize
+  # pars: vector of parameters to optimize (initial guesses, can be named)
   # control: a list of named options for the algorithm, as defined in control()
   # untrans: function to retrieve the parameters on their natural scale (the inverse of trans)
   # trans: function to return the parameters back to their transformed scale
-  # ...: extra arguments of the function to optimize
+  # extra: named list of extra arguments of the function to optimize
 
   # Checks
   testit::assert(is.function(fun))
@@ -178,19 +206,23 @@ simplex <- function(
   testit::assert(is.function(trans) == is.function(untrans))
 
   # Number of parameters (i.e. dimensions)
-  n <- length(pars)
+  npars <- length(pars)
 
   # Update default options with user choices
-  control <- make_control(control, n)
+  control <- make_control(control, npars)
 
   # Check the control parameters
   check_control(control)
 
+  # Check that the extra arguments are a list, named if needed
+  testit::assert(is.list(extra))
+  if (length(extra) > 0L) testit::assert(!is.null(names(extra)))
+
   # Number of vertices
-  nvertices <- n + 1L
+  nvertices <- npars + 1L
 
   # Prepare the simplex as a matrix of coordinates for each vertex
-  v <- matrix(rep(pars, nvertices), nrow = n)
+  V <- matrix(rep(pars, nvertices), nrow = npars)
 
   # Ratio by which to dodge each vertex dimension
   r0 <- 1 + control$delta
@@ -214,8 +246,8 @@ simplex <- function(
   r[r < r0] <- r0
 
   # Indices of the coordinates to add a little deviation to
-  ii <- seq(n)
-  ii <- ii * n + ii
+  ii <- seq(npars)
+  ii <- ii * npars + ii
 
   # Note: those indices are positions in the matrix corresponding to (i, i + 1)
   # for as many i's as there are dimensions (parameters). This way, each
@@ -224,13 +256,16 @@ simplex <- function(
   # a description of the algorithm.
 
   # Shift each vertex by the specified ratio along only one dimension
-  v[ii] <- r * v[ii]
+  V[ii] <- r * V[ii]
 
   # Small deviation for zero-values coordinates
-  v[ii][v[ii] == 0] <- control$dzero
+  V[ii][V[ii] == 0] <- control$dzero
+
+  # Add parameter names to the simplex if needed
+  if (!is.null(names(pars))) rownames(V) <- names(pars)
 
   # Compute the function for each vertex
-  fv <- apply(v, 2L, \(x) { -fun(x, ...) })
+  fvalues <- apply(V, 2L, \(x) { -call_fun(fun, x, extra) })
 
   # TODO: Make this work with named vectors of parameters
 
@@ -238,10 +273,10 @@ simplex <- function(
   # of its negative.
 
   # Reorder vertices from minimum to maximum function value
-  jj <- order(fv)
-  v <- v[, jj]
-  if (n == 1L) v <- matrix(v, nrow = n)
-  fv <- fv[jj]
+  jj <- order(fvalues)
+  V <- V[, jj]
+  if (npars == 1L) V <- matrix(V, nrow = npars)
+  fvalues <- fvalues[jj]
 
   # Note: this way the last vertex is the worst one.
 
@@ -249,61 +284,69 @@ simplex <- function(
   for (iter in 1:control$maxiter) {
 
     # Compute useful metrics for convergence checking
-    maxdf <- max(abs(fv - fv[1]))
-    dv <- abs(v - v[, 1])
+    maxdf <- max(abs(fvalues - fvalues[1]))
+    dV <- abs(V - V[, 1])
 
     # Note: this latter line compute the distance between each vertex (column)
     # and the first one.
 
     # Measure convergence in both function evaluation and simplex coordinates
-    is_conf <- !is.nan(maxdf) & maxdf <= control$rtolf * abs(fv[1])
-    is_conv <- max(dv - control$rtolx * abs(v[, 1])) <= 0 & max(dv) <= control$atolx
+    is_conf <- !is.nan(maxdf) & maxdf <= control$rtolf * abs(fvalues[1])
+    is_conv <- with(control, max(dV - rtolx * abs(V[, 1])) <= 0 & max(dV) <= atolx)
 
     # Break the loop if convergence is reached
     if (is_conf | is_conv) break
 
     # Centroid of the n (not n + 1)-dimensional edge along which to flip the simplex
-    xbar <- rowSums(v[, 1:n]) / n
+    xbar <- rowSums(V[, 1:npars]) / npars
 
     # Note: this would be a line in a 2-dimensional parameter space here
     # the simplex is a triangle, for example, but it would be a triangle
     # in a 3-dimensional parameter space where the simplex is a tetrahedron.
 
     # Figure how to update the worst vertex
-    newv <- update_vertex(
+    new_vertex <- with(control, get_updated_vertex(
 
-      v[, nvertices], xbar, fun,
-      fmin = fv[1], fstm = fv[n], fmax = fv[nvertices],
-      control$rho, control$chi, control$psi, control$sigma,
-      ...
+      # Vertex to update and centroid wrt which to transform
+      V[, nvertices], xbar,
 
-    )
+      # The function
+      fun,
 
-    # TODO: What if the function take arguments named the same?
+      # Function values to compare to
+      fmin = fvalues[1], fstm = fvalues[npars], fmax = fvalues[nvertices],
+
+      # Geometric transformation parameters
+      rho, chi, psi, sigma,
+
+      # Extra arguments for the function to optimize
+      extra
+
+    ))
 
     # If the simplex must be shrunk...
-    if (newv$how == "shrink") {
+    if (new_vertex$how == "shrink") {
 
       # For each vertex except the best one
       kk <- 2:nvertices
 
       # Shrink the simplex by shifting that vertex towards the best one
-      v[, kk] <- v[, 1] + control$sigma * (v[, kk] - v[, 1])
-      fv[kk] = -fun(pars = v[, kk], ...)
+      V[, kk] <- V[, 1] + control$sigma * (V[, kk] - V[, 1])
+      fvalues[kk] = -call_fun(fun, V[, kk], extra)
 
     } else {
 
       # Otherwise update the worst vertex
-      v[, nvertices] <- newv$x
-      fv[nvertices] <- newv$fv
+      V[, nvertices] <- new_vertex$vertex
+      fvalues[nvertices] <- new_vertex$fvalue
 
     }
 
     # Reorder vertices from minimum to maximum function value
-    jj <- order(fv)
-    v <- v[, jj]
-    if (n == 1L) v <- matrix(v, nrow = n)
-    fv <- fv[jj]
+    jj <- order(fvalues)
+    V <- V[, jj]
+    if (npars == 1L) V <- matrix(V, nrow = npars)
+    fvalues <- fvalues[jj]
 
     # Increment iteration
     iter <- iter + 1L
@@ -314,8 +357,8 @@ simplex <- function(
   return(list(
 
     # The best parameters found and their associated function value
-    pars = v[, 1],
-    fvalue = -fv[1],
+    pars = V[, 1],
+    fvalue = -fvalues[1],
 
     # Whether convergence has been reached
     conv = iter < control$maxiter
