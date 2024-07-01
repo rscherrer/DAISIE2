@@ -51,8 +51,9 @@ get_likelihood <- function(Qkn, QMkn, k, is_present, is_empty) {
 # Function to compute the likelihood
 integrate_clade <- function(
 
-  island_age, pars, nmax, is_present = FALSE, tcol = NULL, branching_times = c(),
-  tmax = NULL, tmin = NULL, method = "lsodes", atol = 1e-16, rtol = 1e-10
+  island_age, pars, nmax, is_present = FALSE, tcol = NULL,
+  branching_times = c(), tmax = NULL, tmin = NULL,
+  control = list()
 
 ) {
 
@@ -64,9 +65,7 @@ integrate_clade <- function(
   # branching_times: vector of times of cladogenesis events
   # tmax: upper bound for an unknown colonization time
   # tmin: lower bound for an unknown colonization time
-  # method, atol, rtol: parameters for deSolve::ode
-
-  # TODO: Add checks to the method parameters? Or use ...?
+  # control: named list of control parameters for deSolve::ode
 
   # The number of observed species we should get to at the end of the integration
   kend <- guess_k(tcol, tmax, tmin, branching_times)
@@ -76,6 +75,10 @@ integrate_clade <- function(
   if (is.null(tmin)) tmin <- 1
   if (is.null(tcol)) tcol <- 1
   if (length(branching_times) == 0L) branching_times <- 1
+
+  # Default control parameters if not supplied
+  if (length(control) == 0L)
+    control <- list(method = "lsodes", atol = 1e-16, rtol = 1e-10)
 
   # Number of possible numbers of unobserved species (incl. zero)
   N <- nmax + 1L
@@ -268,13 +271,19 @@ integrate_clade <- function(
     tnext <- time_points[inext]
 
     # Integrate the system from the present time to the next time point
-    Q <- deSolve::ode(
-      Q,
-      times = c(t, tnext),
+    Q <- do.call(deSolve::ode, c(
+
+      y = list(Q),
+      times = list(c(t, tnext)),
       func = right_hand_side,
-      parm = pars, N = N, k = k,
-      method = method, atol = atol, rtol = rtol
-    )
+      parm = list(pars),
+      N = N,
+      k = k,
+      control
+
+    ))
+
+    # TODO: Avoid parameter collision here.
 
     # Strip down to a final vector of probabilities
     Q <- unname(Q[-1, -1])

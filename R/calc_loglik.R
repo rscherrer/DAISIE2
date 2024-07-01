@@ -1,19 +1,25 @@
 # TODO: Make sure default parameters are only where needed.
 
 # Function to calculate the likelihood of the data given the model
-calc_loglik <- function(data, pars, island_age, M, nmax) {
+calc_loglik <- function(
+
+  data, pars, island_age, M, nmax,
+  control = list()
+
+) {
 
   # data: list of clade data
   # pars: model parameters
   # island_age: the age of the island
   # M: size of the mainland pool
   # nmax: maximum number of unobserved species allowed per clade
+  # control: control parameters for the integrator
 
   # Turn the parameters back into a list if not already
   pars <- as.list(pars)
 
   # Compute the likelihood of a clade leaving no descendants
-  loglik <- integrate_clade(island_age, pars, nmax)
+  loglik <- integrate_clade(island_age, pars, nmax, control)
 
   # TODO: Don't forget to pass extra arguments too.
 
@@ -36,7 +42,8 @@ calc_loglik <- function(data, pars, island_age, M, nmax) {
         pars,
         nmax,
         is_present, tcol,
-        branching_times, tmin, tmax
+        branching_times, tmin, tmax,
+        control
       ))
 
   }

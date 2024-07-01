@@ -114,13 +114,21 @@ check_data <- function(data) {
 }
 
 # Function to find maximum likelihood estimates
-daisie_ml <- function(data, pars, island_age, M, nmax) {
+daisie_ml <- function(
+
+  data, pars, island_age, M, nmax,
+  control_ml = list(),
+  control_ode = list()
+
+) {
 
   # data: the input data
   # pars: model parameters
   # island_age: age of the island
   # M: size of the mainland pool
   # nmax: maximum allowed number of unobserved species
+  # control_ml: named list of options for the likelihood maximization algorithm
+  # control_ode: named list of options for the integrator
 
   # Check the input data
   check_data(data)
@@ -146,9 +154,12 @@ daisie_ml <- function(data, pars, island_age, M, nmax) {
   # depend on what the subplex algorithm expects.
 
   # Extra arguments (names as expected by the likelihood function)
-  extra <- list(data = data, island_age = island_age, M = M, nmax = nmax)
+  extra <- list(
+    data = data, island_age = island_age, M = M, nmax = nmax,
+    control = control_ode
+  )
 
   # Optimize the likelihood function
-  simplex(fun = calc_loglik, pars = pars, extra = extra)
+  simplex(fun = calc_loglik, pars = pars, extra = extra, control = control_ml)
 
 }

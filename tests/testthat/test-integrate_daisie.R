@@ -61,6 +61,8 @@ test_that("Established clade with unknown colonization", {
 test_that("No wonky integration method", {
 
   # Check that
-  expect_error(integrate_clade(island_age = -30, pars, nmax = 10L, method = "hello"))
+  expect_error(integrate_clade(
+    island_age = -30, pars, nmax = 10L, control = list(method = "hello")
+  ))
 
 })

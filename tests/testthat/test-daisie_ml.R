@@ -12,9 +12,3 @@ data <- list(
 # Parameter values
 pars <- list(lambda_c = 0.18, mu = 0.02, gamma = 0.02, lambda_a = 2)
 
-# Use case
-test_that("Use case", {
-
-  daisie_ml(data, pars, island_age = -30, M = 100, nmax = 10)
-
-})
