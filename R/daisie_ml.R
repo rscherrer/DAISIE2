@@ -153,6 +153,11 @@ daisie_ml <- function(
   # TODO: Do we want to pass a vector here or is a list fine? Will probably
   # depend on what the subplex algorithm expects.
 
+  # Re-scale the parameters
+  pars <- range_transform(pars)
+
+  # TODO: Maybe make transformation optional or user-defined.
+
   # Extra arguments (names as expected by the likelihood function)
   extra <- list(
     data = data, island_age = island_age, M = M, nmax = nmax,
@@ -160,6 +165,11 @@ daisie_ml <- function(
   )
 
   # Optimize the likelihood function
-  simplex(fun = calc_loglik, pars = pars, extra = extra, control = control_ml)
+  simplex(
+    fun = calc_loglik, pars = pars, extra = extra,
+    control = control_ml,
+    trans = range_transform,
+    untrans = \(x) range_transform(x, inverse = TRUE)
+  )
 
 }

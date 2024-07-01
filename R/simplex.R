@@ -1,3 +1,27 @@
+# Function to check the transformation functions
+check_trans <- function(trans, untrans) {
+
+  # trans: the transformation function
+  # untrans: its inverse
+
+  # Transformation functions must be either functions or nothing
+  testit::assert(is.function(trans) | is.null(trans))
+  testit::assert(is.function(untrans) | is.null(untrans))
+
+  # If one transformation is provided then both must be
+  testit::assert(is.function(trans) == is.function(untrans))
+
+  # Exit now if not provided
+  if (is.null(trans)) return()
+
+  # Dummy value
+  dummy <- 1.1
+
+  # They must be inverse of each other (try with a dummy value)
+  testit::assert(trans(untrans(dummy)) == dummy)
+
+}
+
 # Function to set the control options
 make_control <- function(options, n = 1L) {
 
@@ -205,14 +229,12 @@ simplex <- function(
   # the parameters to optimize will be passed to the first argument not yet
   # passed in the function to optimize.
 
-  # TODO: Make this clearer or rethink the naming of parameters being passed.
-
   # Checks
   testit::assert(is.function(fun))
   testit::assert(is_number(pars, scalar = FALSE))
 
-  # If one transformation is provided then both must be
-  testit::assert(is.function(trans) == is.function(untrans))
+  # Check the transformation functions
+  check_trans(trans, untrans)
 
   # Number of parameters (i.e. dimensions)
   npars <- length(pars)

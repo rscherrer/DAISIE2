@@ -2,7 +2,7 @@
 range_transform <- function(x, xmax = 1, inverse = FALSE) {
 
   # x: vector of values to transform
-  # xmax: upper bound of the new range (full range is between -xmax and +xmax)
+  # xmax: upper bound of the transformed range (full range is between -xmax and +xmax)
   # inverse: whether to perform the inverse of the transformation
 
   # Check arguments
