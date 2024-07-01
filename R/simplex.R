@@ -191,12 +191,21 @@ simplex <- function(
 
 ) {
 
-  # fun: the function (must take pars as first argument, not nec. with that name)
+  # fun: the function to maximize
   # pars: vector of parameters to optimize (initial guesses, can be named)
   # control: a list of named options for the algorithm, as defined in control()
   # untrans: function to retrieve the parameters on their natural scale (the inverse of trans)
   # trans: function to return the parameters back to their transformed scale
   # extra: named list of extra arguments of the function to optimize
+
+  # Note: here we assume that the function to optimize takes a vector of
+  # parameters as one of its arguments ("pars"), and those are the parameters
+  # to optimize. The extra parameters in "extra" should be named so they can
+  # be matched to the right argument in the function. Once those are passed,
+  # the parameters to optimize will be passed to the first argument not yet
+  # passed in the function to optimize.
+
+  # TODO: Make this clearer or rethink the naming of parameters being passed.
 
   # Checks
   testit::assert(is.function(fun))
@@ -267,9 +276,7 @@ simplex <- function(
   # Compute the function for each vertex
   fvalues <- apply(V, 2L, \(x) { -call_fun(fun, x, extra) })
 
-  # TODO: Make this work with named vectors of parameters
-
-  # Note: this algorithm finds maximizes a function by finding the minimum
+  # Note: this algorithm maximizes a function by finding the minimum
   # of its negative.
 
   # Reorder vertices from minimum to maximum function value

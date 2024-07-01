@@ -279,13 +279,19 @@ integrate_clade <- function(
     # Strip down to a final vector of probabilities
     Q <- unname(Q[-1, -1])
 
-    # TODO: Catch probabilities slightly smaller than zero here.
+    # Catch probabilities slightly smaller than zero
+    Q[Q < 0] <- 0
+
+    # TODO: Make sure we make the difference between numerical imprecision and
+    # actual bugs.
 
     # Compute the sum of all probabilities
     sumQ <- sum(Q)
 
     # Use it to normalize the probabilities so they sum up to one
-    Q <- Q / sum(Q)
+    Q <- Q / sumQ
+
+    # TODO: Case when the sum of probabilities is zero.
 
     # Also use it to update the running offset for the log-likelihood
     offset <- offset + log(sumQ)

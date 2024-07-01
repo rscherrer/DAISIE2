@@ -1,18 +1,3 @@
-# Function to test whether an input is a single non-NA logical
-is_yes_no <- function(x) {
-
-  # TODO: Make use of this function wherever needed
-
-  # Check that the input is TRUE or FALSE and nothing else
-  if (!is.logical(x)) return(FALSE)
-  if (length(x) > 1L) return(FALSE)
-  if (is.na(x)) return(FALSE)
-
-  # If it passes all the filters, return TRUE
-  return(TRUE)
-
-}
-
 # Tell if an object is a (or several) number(s) (and what kind)
 is_number <- function(x, scalar = TRUE, integer = FALSE, sign = NULL, strict = FALSE) {
 
@@ -55,3 +40,10 @@ is_number <- function(x, scalar = TRUE, integer = FALSE, sign = NULL, strict = F
   return(is)
 
 }
+
+# Wrappers
+is_positive <- function(x, strict = FALSE) is_number(x, scalar = TRUE, sign = 1, strict)
+is_negative <- function(x, strict = FALSE) is_number(x, scalar = TRUE, sign = -1, strict)
+is_positive_integer <- function(x, strict = FALSE) is_number(x, scalar = TRUE, sign = 1, strict)
+is_negative_vector <- function(x, strict = FALSE) is_number(x, scalar = FALSE, sign = -1, strict)
+is_positive_vector <- function(x, strict = FALSE) is_number(x, scalar = FALSE, sign = 1, strict)

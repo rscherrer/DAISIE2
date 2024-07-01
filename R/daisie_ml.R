@@ -22,7 +22,7 @@ check_pars <- function(pars) {
   testit::assert(all(par_names() %in% names(pars)))
 
   # Check that all parameters are positive numbers
-  testit::assert(is_number(unlist(pars), scalar = FALSE, sign = 1))
+  testit::assert(is_positive_vector(unlist(pars)))
 
 }
 
@@ -48,13 +48,13 @@ check_times <- function(tcol, tmin, tmax, branching_times, island_age) {
   if (!is.null(tmin)) testit::assert(!is.null(tmax))
 
   # Check that the colonization times are all negative numbers
-  if (!is.null(tcol)) testit::assert(is_number(tcol, sign = -1))
-  if (!is.null(tmax)) testit::assert(is_number(tmax, sign = -1))
-  if (!is.null(tmin)) testit::assert(is_number(tmin, sign = -1))
+  if (!is.null(tcol)) testit::assert(is_negative(tcol))
+  if (!is.null(tmax)) testit::assert(is_negative(tmax))
+  if (!is.null(tmin)) testit::assert(is_negative(tmin))
 
   # And that if provided branching times are too
   if (length(branching_times) > 0L)
-    testit::assert(all(is_number(branching_times, scalar = FALSE, sign = -1)))
+    testit::assert(all(is_negative_vector(branching_times)))
 
   # Make sure that timings are in chronological order
   times <- c(island_age, tmax, tcol, tmin, branching_times)
@@ -69,7 +69,7 @@ check_clade <- function(clade, island_age = -Inf) {
   # island_age: age of the island
 
   # Check that island age is a negative number
-  testit::assert(is_number(island_age, sign = -1))
+  testit::assert(is_negative(island_age))
 
   # Must be a list
   testit::assert(is.list(clade))
@@ -88,15 +88,7 @@ check_clade <- function(clade, island_age = -Inf) {
   # TODO: Should we put item names in a separate function? As for parameters?
 
   # Make sure whether the mainland colonist is present is a yes or no
-  with(clade, {
-
-    # TODO: Maybe create a function for yes/no
-
-    testit::assert(is.logical(clade$is_present))
-    testit::assert(length(clade$is_present) == 1L)
-    testit::assert(!is.na(clade$is_present))
-
-  })
+  testit::assert(is_yes_no(clade$is_present))
 
   # Check the timings
   with(clade, check_times(tcol, tmin, tmax, branching_times, island_age))
@@ -122,26 +114,13 @@ check_data <- function(data) {
 }
 
 # Function to find maximum likelihood estimates
-daisie_ml <- function(
-
-  data, pars, island_age, M, nmax,
-  optimmethod = "subplex",
-  tol = c(1e-4, 1e-5, 1e-7),
-  maxiter = 1000L * round((1.25)^length(pars)),
-  num_cycles = 1L, jitter = 0
-
-) {
+daisie_ml <- function(data, pars, island_age, M, nmax) {
 
   # data: the input data
   # pars: model parameters
   # island_age: age of the island
   # M: size of the mainland pool
   # nmax: maximum allowed number of unobserved species
-  # tol, maxiter, num_cycles, jitter: arguments for the optimizer
-
-  # TODO: Actually it's c(tol, maxiter) that is an argument.
-
-  # TODO: Handle methodological arguments better (pass those for the integrator).
 
   # Check the input data
   check_data(data)
@@ -150,20 +129,26 @@ daisie_ml <- function(
   check_pars(pars)
 
   # Check that island age is a negative number (i.e. time ago)
-  testit::assert(is_number(island_age, scalar = TRUE, sign = -1))
+  testit::assert(is_negative(island_age))
 
   # Check that the mainland pool is a strictly positive number
-  testit::assert(is_number(M, scalar = TRUE, integer = TRUE, sign = 1))
+  testit::assert(is_positive_integer(M, strict = TRUE))
 
   # TODO: What if it is zero?
 
   # Check that the maximum number of unobserved species is a positive number
-  testit::assert(is_number(nmax, scalar = TRUE, integer = TRUE, sign = 1))
+  testit::assert(is_positive_integer(nmax))
 
   # We must turn the parameters into a vector
   pars <- unlist(pars)
 
+  # TODO: Do we want to pass a vector here or is a list fine? Will probably
+  # depend on what the subplex algorithm expects.
+
+  # Extra arguments (names as expected by the likelihood function)
+  extra <- list(data = data, island_age = island_age, M = M, nmax = nmax)
+
   # Optimize the likelihood function
-  out <- simplex(fun = calc_loglik, pars, island_age, M, nmax, ...)
+  simplex(fun = calc_loglik, pars = pars, extra = extra)
 
 }
