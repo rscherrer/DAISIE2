@@ -36,4 +36,47 @@ test_that("Simplex on bivariate quadratic formula", {
 
 })
 
-# TODO: Check that it should error if the names of the parameters are wrong?
+# Error if wrong parameters
+test_that("Wrong parameters", {
+
+  # Should error
+  expect_error(simplex(biquadratic, pars = c(hey = 2, hello = 2)))
+
+})
+
+# Can handle infinite optima
+test_that("Infinite optimum", {
+
+  # Find the solution of a concave polynomial
+  sol <- simplex(biquadratic, pars = c(x = -10, y = -10))
+
+  # Check that the maximum is infinite
+  expect_equal(sol$fvalue, Inf)
+
+})
+
+# Function with only one parameter
+test_that("Function with one parameter", {
+
+  # Find the solution
+  sol <- simplex(fun = \(x) -x^2, pars = c(x = 0))
+
+  # Make sure the maximum was found
+  expect_equal(sol$pars, 0)
+  expect_equal(sol$fvalue, 0)
+
+})
+
+# Test an example where the simplex shrinks
+test_that("Shrinking simplex", {
+
+  # Run an example where the simplex has to shrink at some point
+  sol <- simplex(
+    biquadratic, pars = c(x = -10, y = -10), extra = list(a = -0.5, b = -0.5),
+    control = list(delta = 0.1)
+  )
+
+  # Should have run
+  expect_true(is.list(sol))
+
+})

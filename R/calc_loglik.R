@@ -1,5 +1,3 @@
-# TODO: Make sure default parameters are only where needed.
-
 # Function to calculate the likelihood of the data given the model
 calc_loglik <- function(
 
@@ -20,8 +18,6 @@ calc_loglik <- function(
 
   # Compute the likelihood of a clade leaving no descendants
   loglik <- integrate_clade(island_age, pars, nmax, control)
-
-  # TODO: Don't forget to pass extra arguments too.
 
   # How many of the mainland pool made it to the island?
   ncol <- length(data)

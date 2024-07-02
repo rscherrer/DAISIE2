@@ -85,8 +85,6 @@ check_clade <- function(clade, island_age = -Inf) {
   testit::assert(all(names(clade) %in% clade_items))
   testit::assert(all(clade_items %in% names(clade)))
 
-  # TODO: Should we put item names in a separate function? As for parameters?
-
   # Make sure whether the mainland colonist is present is a yes or no
   testit::assert(is_yes_no(clade$is_present))
 
@@ -150,13 +148,8 @@ daisie_ml <- function(
   # We must turn the parameters into a vector
   pars <- unlist(pars)
 
-  # TODO: Do we want to pass a vector here or is a list fine? Will probably
-  # depend on what the subplex algorithm expects.
-
   # Re-scale the parameters
   pars <- range_transform(pars)
-
-  # TODO: Maybe make transformation optional or user-defined.
 
   # Extra arguments (names as expected by the likelihood function)
   extra <- list(

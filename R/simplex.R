@@ -15,7 +15,7 @@ check_trans <- function(trans, untrans) {
   if (is.null(trans)) return()
 
   # Dummy value
-  dummy <- 1.1
+  dummy <- 0.9
 
   # They must be inverse of each other (try with a dummy value)
   testit::assert(trans(untrans(dummy)) == dummy)
@@ -156,12 +156,12 @@ get_updated_vertex <- function(x, xbar, fun, fmin, fstm, fmax, rho, chi, psi, si
   xr <- (1 + rho) * xbar - rho * x
   fxr <- -call_fun(fun, xr, extra)
 
-  # TODO: Can we avoid passing the function so many times?
-
   # TODO: Does that mean we can make it work with lists of parameters?
 
   # Set reflection as our new prospect
   out <- new_vertex(xr, fxr, how = "reflect")
+
+  # TODO: Sometimes the function values are not numbers, what do we do then?
 
   # If the reflection is a new minimum...
   if (fxr < fmin) {
@@ -229,6 +229,10 @@ simplex <- function(
   # the parameters to optimize will be passed to the first argument not yet
   # passed in the function to optimize.
 
+  # TODO: Specify starting values, stop if not.
+
+  # TODO: Verbose.
+
   # Checks
   testit::assert(is.function(fun))
   testit::assert(is_number(pars, scalar = FALSE))
@@ -270,8 +274,17 @@ simplex <- function(
   # Transform them back if needed
   if (!is.null(trans)) dpars <- trans(dpars)
 
-  # Measure the transformation factors (ratio) on the transformed scale
-  r <- dpars / pars
+  # Prepare a vector of dodge factors
+  r <- rep(1, npars)
+
+  # That ratio cannot be measured on zero-valued parameters so identify those
+  inonzero <- pars != 0
+
+  # Measure the dodge ratios on the transformed scale
+  r[inonzero] <- dpars[inonzero] / pars[inonzero]
+
+  # Should have run smoothly
+  testit::assert(!any(is.nan(r)))
 
   # Make sure that they are no smaller than the ratio on the untransformed scale
   r[r < r0] <- r0
@@ -289,7 +302,7 @@ simplex <- function(
   # Shift each vertex by the specified ratio along only one dimension
   V[ii] <- r * V[ii]
 
-  # Small deviation for zero-values coordinates
+  # Small deviation for zero-valued coordinates
   V[ii][V[ii] == 0] <- control$dzero
 
   # Add parameter names to the simplex if needed
@@ -327,11 +340,14 @@ simplex <- function(
     if (is_conf | is_conv) break
 
     # Centroid of the n (not n + 1)-dimensional edge along which to flip the simplex
-    xbar <- rowSums(V[, 1:npars]) / npars
+    xbar <- rowSums(as.matrix(V[, 1:npars])) / npars
 
     # Note: this would be a line in a 2-dimensional parameter space here
     # the simplex is a triangle, for example, but it would be a triangle
     # in a 3-dimensional parameter space where the simplex is a tetrahedron.
+
+    # Note: we turn the object into a matrix again because rowSums errors
+    # when only one parameter (and it is applied on a scalar).
 
     # Figure how to update the worst vertex
     new_vertex <- with(control, get_updated_vertex(
@@ -361,7 +377,9 @@ simplex <- function(
 
       # Shrink the simplex by shifting that vertex towards the best one
       V[, kk] <- V[, 1] + control$sigma * (V[, kk] - V[, 1])
-      fvalues[kk] = -call_fun(fun, V[, kk], extra)
+      fvalues[kk] = apply(as.matrix(V[, kk]), 2L, \(x) -call_fun(fun, x, extra))
+
+      # Note: we force into a matrix in case there is only one element.
 
     } else {
 
@@ -377,8 +395,8 @@ simplex <- function(
     if (npars == 1L) V <- matrix(V, nrow = npars)
     fvalues <- fvalues[jj]
 
-    # Increment iteration
-    iter <- iter + 1L
+    # Stop if we reached too large negative numbers
+    if (any(fvalues == -Inf)) break
 
   }
 

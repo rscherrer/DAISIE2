@@ -12,3 +12,21 @@ data <- list(
 # Parameter values
 pars <- list(lambda_c = 0.18, mu = 0.02, gamma = 0.02, lambda_a = 2)
 
+# Make sure the routine works
+test_that("Maximum likelihood", {
+
+  # Run the optimization
+  out <- daisie_ml(
+    data, pars, island_age = -30, M = 100L, nmax = 10L,
+    control_ml = list(maxiter = 1L)
+  )
+
+  # TODO: Figure where to turn island age into a positive number.
+
+  # Check names
+  expect_true(all(names(out) == c("pars", "fvalue", "conv")))
+
+  # Should not have converged
+  expect_false(out$conv)
+
+})

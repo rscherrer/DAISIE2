@@ -44,6 +44,6 @@ is_number <- function(x, scalar = TRUE, integer = FALSE, sign = NULL, strict = F
 # Wrappers
 is_positive <- function(x, strict = FALSE) is_number(x, scalar = TRUE, sign = 1, strict)
 is_negative <- function(x, strict = FALSE) is_number(x, scalar = TRUE, sign = -1, strict)
-is_positive_integer <- function(x, strict = FALSE) is_number(x, scalar = TRUE, sign = 1, strict)
+is_positive_integer <- function(x, strict = FALSE) is_number(x, scalar = TRUE, integer = TRUE, sign = 1, strict)
 is_negative_vector <- function(x, strict = FALSE) is_number(x, scalar = FALSE, sign = -1, strict)
 is_positive_vector <- function(x, strict = FALSE) is_number(x, scalar = FALSE, sign = 1, strict)
