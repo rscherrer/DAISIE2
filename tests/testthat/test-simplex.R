@@ -22,7 +22,7 @@ test_that("Simplex on bivariate quadratic formula", {
   control <- list(rtolx = 1e-6, rtolf = 1e-7, atolx = 1e-9)
 
   # Find the parameter values that maximize the function
-  sol <- simplex(
+  out <- simplex(
     biquadratic, pars = c(x = -10, y = -10),
     extra = list(a = -1, b = -1),
     control = control
@@ -31,8 +31,8 @@ test_that("Simplex on bivariate quadratic formula", {
   # Note: with a and b being negative there is a clear maximum.
 
   # Check that we have found the right maximum
-  expect_true(all(round(sol$pars, 3L) == 1))
-  expect_equal(round(sol$fvalue, 6L), 2)
+  expect_true(all(round(out$pars, 3L) == 1))
+  expect_equal(round(out$fvalue, 6L), 2)
 
 })
 
@@ -48,10 +48,10 @@ test_that("Wrong parameters", {
 test_that("Infinite optimum", {
 
   # Find the solution of a concave polynomial
-  sol <- simplex(biquadratic, pars = c(x = -10, y = -10))
+  out <- simplex(biquadratic, pars = c(x = -10, y = -10))
 
   # Check that the maximum is infinite
-  expect_equal(sol$fvalue, Inf)
+  expect_equal(out$fvalue, Inf)
 
 })
 
@@ -59,11 +59,11 @@ test_that("Infinite optimum", {
 test_that("Function with one parameter", {
 
   # Find the solution
-  sol <- simplex(fun = \(x) -x^2, pars = c(x = 0))
+  out <- simplex(fun = \(x) -x^2, pars = c(x = 0))
 
   # Make sure the maximum was found
-  expect_equal(sol$pars, 0)
-  expect_equal(sol$fvalue, 0)
+  expect_equal(out$pars, 0)
+  expect_equal(out$fvalue, 0)
 
 })
 
@@ -71,12 +71,12 @@ test_that("Function with one parameter", {
 test_that("Shrinking simplex", {
 
   # Run an example where the simplex has to shrink at some point
-  sol <- simplex(
+  out <- simplex(
     biquadratic, pars = c(x = -10, y = -10), extra = list(a = -0.5, b = -0.5),
     control = list(delta = 0.1)
   )
 
   # Should have run
-  expect_true(is.list(sol))
+  expect_true(is.list(out))
 
 })

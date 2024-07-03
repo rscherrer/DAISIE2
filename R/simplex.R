@@ -23,7 +23,7 @@ check_trans <- function(trans, untrans) {
 }
 
 # Function to set the control options
-make_control <- function(options, n = 1L) {
+make_control_simplex <- function(options, n = 1L) {
 
   # options: named list of user-specified options
   # n: number of parameters to optimize
@@ -72,7 +72,7 @@ make_control <- function(options, n = 1L) {
 }
 
 # Function to check the control parameters
-check_control <- function(control) {
+check_control_simplex <- function(control) {
 
   # control: list containing the control parameters
 
@@ -102,18 +102,6 @@ check_control <- function(control) {
     testit::assert(all(is_number(c(rho, chi, psi, sigma), scalar = FALSE, sign = 1)))
 
   })
-}
-
-# Wrapper around a function to avoid argument collision between environments
-call_fun <- function(fun, x, extra = list()) {
-
-  # fun: the function to call
-  # x: the first argument
-  # extra: list with all the other arguments
-
-  # Call the function
-  do.call(fun, c(list(x), extra))
-
 }
 
 # Function to return a list of information for a new vertex
@@ -244,10 +232,10 @@ simplex <- function(
   npars <- length(pars)
 
   # Update default options with user choices
-  control <- make_control(control, npars)
+  control <- make_control_simplex(control, npars)
 
   # Check the control parameters
-  check_control(control)
+  check_control_simplex(control)
 
   # Check that the extra arguments are a list, named if needed
   testit::assert(is.list(extra))
@@ -322,8 +310,11 @@ simplex <- function(
 
   # Note: this way the last vertex is the worst one.
 
+  # Initialize counter
+  iter <- 1L
+
   # For each iteration...
-  for (iter in 1:control$maxiter) {
+  while (iter <= control$maxiter) {
 
     # Compute useful metrics for convergence checking
     maxdf <- max(abs(fvalues - fvalues[1]))
@@ -398,6 +389,9 @@ simplex <- function(
     # Stop if we reached too large negative numbers
     if (any(fvalues == -Inf)) break
 
+    # Increment counter
+    iter <- iter + 1L
+
   }
 
   # Return...
@@ -407,8 +401,8 @@ simplex <- function(
     pars = V[, 1],
     fvalue = -fvalues[1],
 
-    # Whether convergence has been reached
-    conv = iter < control$maxiter
+    # Whether convergence has been reached (code zero if yes)
+    conv = as.integer(iter > control$maxiter)
 
   ))
 

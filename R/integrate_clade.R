@@ -218,6 +218,10 @@ integrate_clade <- function(
       # If we come from an unknown colonization time (maximum)...
       if (tprev == tmax) {
 
+        # TODO: What about forcing a negligible amount of time as known
+        # colonization (i.e. having passed tmin, just like we do when
+        # initializing the island in some cases)?
+
         # Then there were zero observed species before
         testit::assert(k == 0L)
 

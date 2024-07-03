@@ -116,7 +116,8 @@ daisie_ml <- function(
 
   data, pars, island_age, M, nmax,
   control_ml = list(),
-  control_ode = list()
+  control_ode = list(),
+  method = "subplex"
 
 ) {
 
@@ -127,6 +128,7 @@ daisie_ml <- function(
   # nmax: maximum allowed number of unobserved species
   # control_ml: named list of options for the likelihood maximization algorithm
   # control_ode: named list of options for the integrator
+  # method: which method (of "simplex" or "subplex") to use for optimization?
 
   # Check the input data
   check_data(data)
@@ -145,11 +147,17 @@ daisie_ml <- function(
   # Check that the maximum number of unobserved species is a positive number
   testit::assert(is_positive_integer(nmax))
 
+  # Check the method supplied
+  testit::assert(method %in% c("simplex", "subplex"))
+
   # We must turn the parameters into a vector
   pars <- unlist(pars)
 
   # Re-scale the parameters
   pars <- range_transform(pars)
+
+  # TODO: Make the transformation optional? Or at least let the user choose
+  # wether they want the simplex to untransform.
 
   # Extra arguments (names as expected by the likelihood function)
   extra <- list(
@@ -157,12 +165,24 @@ daisie_ml <- function(
     control = control_ode
   )
 
+  # TODO: Add verbose to the optimizer, or choose where to have it at least.
+
+  # Default optimizer
+  this_optimizer <- subplex
+
+  # If needed...
+  if (method == "simplex") {
+
+    # Prepare extra arguments to pass (transformations used in this case)
+    trans <- range_transform
+    untrans <- function(x) range_transform(x, inverse = TRUE)
+
+    # Change it
+    this_optimizer <- function(...) simplex(..., trans = trans, untrans = untrans)
+
+  }
+
   # Optimize the likelihood function
-  simplex(
-    fun = calc_loglik, pars = pars, extra = extra,
-    control = control_ml,
-    trans = range_transform,
-    untrans = \(x) range_transform(x, inverse = TRUE)
-  )
+  this_optimizer(fun = calc_loglik, pars = pars, extra = extra, control = control_ml)
 
 }

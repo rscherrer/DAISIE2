@@ -18,7 +18,7 @@ test_that("Maximum likelihood", {
   # Run the optimization
   out <- daisie_ml(
     data, pars, island_age = -30, M = 100L, nmax = 10L,
-    control_ml = list(maxiter = 1L)
+    control_ml = list(maxit = 1L), method = "subplex"
   )
 
   # TODO: Figure where to turn island age into a positive number.
@@ -27,6 +27,23 @@ test_that("Maximum likelihood", {
   expect_true(all(names(out) == c("pars", "fvalue", "conv")))
 
   # Should not have converged
-  expect_false(out$conv)
+  expect_false(out$conv == 0L)
+
+})
+
+# Try with the simplex algorithm
+test_that("With simplex", {
+
+  # Run the optimization
+  out <- daisie_ml(
+    data, pars, island_age = -30, M = 100L, nmax = 10L,
+    control_ml = list(maxiter = 1L), method = "simplex"
+  )
+
+  # Check names
+  expect_true(all(names(out) == c("pars", "fvalue", "conv")))
+
+  # Should not have converged
+  expect_false(out$conv == 0L)
 
 })
