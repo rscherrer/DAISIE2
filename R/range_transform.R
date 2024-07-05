@@ -24,8 +24,8 @@ range_transform <- function(x, xmax = 1, inverse = FALSE) {
   }
 
   # Edge of the original and the new space
-  xlim <- ifelse(inverse, 1, Inf)
-  ylim <- ifelse(inverse, Inf, 1)
+  xlim <- ifelse(inverse, xmax, Inf)
+  ylim <- ifelse(inverse, Inf, xmax)
 
   # Take care of edge cases
   y[x == xlim] <- ylim

@@ -117,7 +117,9 @@ daisie_ml <- function(
   data, pars, island_age, M, nmax,
   control_ml = list(),
   control_ode = list(),
-  method = "subplex"
+  method = "subplex",
+  ncycles = 1L,
+  tol = 1e-6
 
 ) {
 
@@ -129,6 +131,8 @@ daisie_ml <- function(
   # control_ml: named list of options for the likelihood maximization algorithm
   # control_ode: named list of options for the integrator
   # method: which method (of "simplex" or "subplex") to use for optimization?
+  # ncycles: number of optimization cycles
+  # tol: tolerance criterion between cycles
 
   # Check the input data
   check_data(data)
@@ -147,14 +151,18 @@ daisie_ml <- function(
   # Check that the maximum number of unobserved species is a positive number
   testit::assert(is_positive_integer(nmax))
 
-  # Check the method supplied
-  testit::assert(method %in% c("simplex", "subplex"))
+  # Check the tolerance criterion
+  testit::assert(is_positive(tol))
 
   # We must turn the parameters into a vector
   pars <- unlist(pars)
 
+  # Transformation functions
+  trans <- range_transform
+  untrans <- function(x) range_transform(x, inverse = TRUE)
+
   # Re-scale the parameters
-  pars <- range_transform(pars)
+  pars <- trans(pars)
 
   # TODO: Make the transformation optional? Or at least let the user choose
   # wether they want the simplex to untransform.
@@ -167,22 +175,7 @@ daisie_ml <- function(
 
   # TODO: Add verbose to the optimizer, or choose where to have it at least.
 
-  # Default optimizer
-  this_optimizer <- subplex
-
-  # If needed...
-  if (method == "simplex") {
-
-    # Prepare extra arguments to pass (transformations used in this case)
-    trans <- range_transform
-    untrans <- function(x) range_transform(x, inverse = TRUE)
-
-    # Change it
-    this_optimizer <- function(...) simplex(..., trans = trans, untrans = untrans)
-
-  }
-
-  # Optimize the likelihood function
-  this_optimizer(fun = calc_loglik, pars = pars, extra = extra, control = control_ml)
+  # Optimize
+  optimizer(calc_loglik, pars, control_ml, method, extra)
 
 }
