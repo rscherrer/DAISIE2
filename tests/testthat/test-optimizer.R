@@ -1,10 +1,12 @@
 ## Here we test the optimization routine.
 
 # Function implementing the bivariate quadratic formula
-biquadratic <- function(pars, a = 1, b = 1, c = 1, d = 1, e = 1, f = 1) {
+biquadratic <- function(pars, a = -1, b = -1, c = 0, d = 0, e = 0, f = 0) {
 
   # pars: the two variables (named x and y)
   # a...f: coefficients of the polynomial
+
+  # Note: with negative quadratic coefficients there is a clear maximum.
 
   # Extract the two variables
   x <- pars["x"]
@@ -15,167 +17,348 @@ biquadratic <- function(pars, a = 1, b = 1, c = 1, d = 1, e = 1, f = 1) {
 
 }
 
-# Check that we can find the maximum of a well-known function
-test_that("Simplex on bivariate quadratic formula", {
+# Example starting values
+pars0 <- c(x = 10, y = 10)
 
-  # Find the parameter values that maximize the function
-  out <- simplex(
-    biquadratic,
-    pars = c(x = -10, y = -10),
-    extra = list(a = -1, b = -1),
-    control = list(rtol = 1e-6, ftol = 1e-7, atol = 1e-9)
-  )
+# Function to re-use the tests applied to the solution
+check_solution <- function(out) {
 
-  # Note: with a and b being negative there is a clear maximum.
+  # out: the output
 
-  # Check that we have found the right maximum
-  expect_true(all(round(out$pars, 3L) == 1))
-  expect_equal(round(out$fvalue, 6L), 2)
+  # Check that the solution is as expected
+  expect_true(all(round(out$pars, 4L) == c(0, 0)))
+  expect_true(round(out$fvalue, 6L) == 0)
+  expect_true(out$conv == 0)
 
-})
+}
 
-# Check that parameter re-scaling works
-test_that("Parameter re-scaling", {
-
-  # Find the parameter values that maximize the function
-  out <- simplex(
-    biquadratic,
-    pars = c(x = -10, y = -10) / 10,
-    extra = list(a = -1, b = -1),
-    control = list(trans = \(x) x / 10, untrans = \(x) x * 10, rtol = 1e-6, ftol = 1e-7, atol = 1e-9)
-  )
-
-  # Check that we have found the right maximum
-  expect_true(all(round(10 * out$pars, 3L) == 1))
-
-})
-
-# Check that parameter re-scaling works
-test_that("Subplex with parameter re-scaling", {
-
-  # Find the parameter values that maximize the function
-  out <- subplex(
-    biquadratic,
-    pars = c(x = -10, y = -10) / 10,
-    extra = list(a = -1, b = -1),
-    control = list(untrans = \(x) x * 10)
-  )
-
-  # Check that we have found the right maximum
-  expect_true(all(round(10 * out$pars, 3L) == 1))
-
-})
-
-# Error if wrong parameters
-test_that("Wrong parameters", {
-
-  # Should error
-  expect_error(simplex(biquadratic, pars = c(hey = 2, hello = 2)))
-
-})
-
-# Can handle infinite optima
-test_that("Infinite optimum", {
-
-  # Find the solution of a concave polynomial
-  out <- simplex(biquadratic, pars = c(x = -10, y = -10))
-
-  # Check that the maximum is infinite
-  expect_equal(out$fvalue, Inf)
-
-})
-
-# Function with only one parameter
-test_that("Function with one parameter", {
-
-  # Find the solution
-  out <- simplex(fun = \(x) -x^2, pars = c(x = 0))
-
-  # Make sure the maximum was found
-  expect_equal(out$pars, 0)
-  expect_equal(out$fvalue, 0)
-
-})
-
-# Test an example where the simplex shrinks
-test_that("Shrinking simplex", {
-
-  # Run an example where the simplex has to shrink at some point
-  out <- simplex(
-    biquadratic,
-    pars = c(x = -10, y = -10),
-    extra = list(a = -0.5, b = -0.5),
-    control = list(delta = 0.1)
-  )
-
-  # Should have run
-  expect_true(is.list(out))
-
-})
-
-# Test a regular use case
+# Use case
 test_that("Use case", {
 
-  # Optimize
-  out <- subplex(
+  # Find the maximum
+  out <- optimizer(biquadratic, pars0)
+
+  # Check that the solution is as expected
+  check_solution(out)
+
+})
+
+# TODO: Should work with unnamed parameters (that depends on what the function
+# expects really).
+
+# TODO: Also what happens when the length of parameters is not as expected
+# by the function? It also sounds like a function problem.
+
+# Error when...
+test_that("Abuse cases", {
+
+  # Function is not a function
+  expect_error(optimizer("hello", pars0))
+
+  # Parameters are not numeric
+  expect_error(optimizer(biquadratic, pars = c(x = "hi", y = "hey")))
+  expect_error(optimizer(biquadratic, pars = c(x = NA, y = 10)))
+
+  # Control options are not in a named list
+  expect_error(optimizer(biquadratic, pars0, control = "hello"))
+  expect_error(optimizer(biquadratic, pars0, control = list(1000L)))
+
+  # Extra parameters are not in a list
+  expect_error(optimizer(biquadratic, pars0, extra = "hello"))
+
+  # Verbose is not TRUE or FALSE
+  expect_error(optimizer(biquadratic, pars0, verbose = "hello"))
+  expect_error(optimizer(biquadratic, pars0, verbose = NA))
+
+  # Wrong method
+  expect_error(optimizer(biquadratic, pars0, method = 999))
+  expect_error(optimizer(biquadratic, pars0, method = "magic"))
+
+  # Number of cycles is not a positive integer
+  expect_error(optimizer(biquadratic, pars0, control = list(ncycles = "hey")))
+  expect_error(optimizer(biquadratic, pars0, control = list(ncycles = -1)))
+  expect_error(optimizer(biquadratic, pars0, control = list(ncycles = 3.1459)))
+
+  # Tolerance between cycles is not a positive number
+  expect_error(optimizer(biquadratic, pars0, control = list(ctol = "hey")))
+  expect_error(optimizer(biquadratic, pars0, control = list(ctol = -1)))
+
+  # Absolute tolerance is not a positive number
+  expect_error(optimizer(biquadratic, pars0, control = list(atol = "hey")))
+  expect_error(optimizer(biquadratic, pars0, control = list(atol = -1)))
+
+  # Relative tolerance is not a positive number
+  expect_error(optimizer(biquadratic, pars0, control = list(rtol = "hey")))
+  expect_error(optimizer(biquadratic, pars0, control = list(rtol = -1)))
+
+  # Maximum number of iterations is not a positive integer
+  expect_error(optimizer(biquadratic, pars0, control = list(maxiter = "hey")))
+  expect_error(optimizer(biquadratic, pars0, control = list(maxiter = -1)))
+  expect_error(optimizer(biquadratic, pars0, control = list(maxiter = 3.1459)))
+
+  # Jitter is not a number
+  expect_error(optimizer(biquadratic, pars0, control = list(jitter = NA)))
+  expect_error(optimizer(biquadratic, pars0, control = list(jitter = "hey")))
+
+  # Back-transformation is neither NULL nor a function
+  expect_error(optimizer(biquadratic, pars0, control = list(untrans = "hey")))
+  expect_error(optimizer(biquadratic, pars0, control = list(untrans = 1)))
+  expect_error(optimizer(biquadratic, pars0, control = list(untrans = NA)))
+
+  # Specifically trigger that from within subplex
+  expect_error(subplex(biquadratic, pars0, control = list(untrans = "hey")))
+  expect_error(subplex(biquadratic, pars0, control = list(untrans = 1)))
+  expect_error(subplex(biquadratic, pars0, control = list(untrans = NA)))
+
+})
+
+# Use case with verbose
+test_that("Use case with verbose", {
+
+  # Find the maximum
+  out <- suppressMessages(optimizer(biquadratic, pars0, verbose = TRUE))
+
+  # Check that the solution is as expected
+  check_solution(out)
+
+})
+
+# Suppress warnings
+test_that("Suppress warnings", {
+
+  # Optimize with warning suppressor
+  out <- optimizer(biquadratic, pars0, warn = FALSE)
+
+  # Check that the solution is as expected
+  check_solution(out)
+
+})
+
+# Unknown options supplied should be ignored
+test_that("Unknown options are ignored", {
+
+  # Check that the right message is displayed
+  suppressMessages(expect_message(
+    optimizer(biquadratic, pars0, control = list(mojo = "jojo"), verbose = TRUE),
+    regexp = "^Unknown option.* mojo\n$"
+  ))
+
+  # Same with a mix of known and unknown options
+  suppressMessages(expect_message(
+    optimizer(biquadratic, pars0, control = list(maxiter = 10L, mojo = "jojo"), verbose = TRUE),
+    regexp = "^Unknown option.* mojo\n$"
+  ))
+
+  # Still make sure that the output is the right one
+  out <- optimizer(biquadratic, pars0, control = list(mojo = "jojo"))
+
+  # Check that the solution is as expected
+  check_solution(out)
+
+})
+
+# Check that it works with re-scaled parameters
+test_that("Re-scaled parameters", {
+
+  # Try with a function to untransform the parameters
+  out <- optimizer(biquadratic, pars = c(x = 1, y = 1), control = list(untrans = function(x) x * 10, rtol = 1e-7))
+
+  # Check that the solution is as expected
+  check_solution(out)
+
+})
+
+# Try multiple cycles of optimization
+test_that("Multiple cycles", {
+
+  # Still make sure that the output is the right one
+  out <- suppressMessages(optimizer(biquadratic, pars0, control = list(ncycles = 10L), verbose = TRUE))
+
+  # Note: verbose is turned on to increase coverage.
+
+  # Check that the solution is as expected
+  check_solution(out)
+
+})
+
+# Subplex with zero iterations
+test_that("Zero iterations", {
+
+  # Run the optimizer
+  out <- optimizer(biquadratic, pars0, list(maxiter = 0L))
+
+  # Make sure nothing was done (and no convergence)
+  expect_true(all(out$pars == pars0))
+  expect_false(out$conv == 0L)
+
+})
+
+# Use case with simplex
+test_that("Use case with simplex", {
+
+  # Find the maximum
+  out <- optimizer(biquadratic, pars0, method = "simplex", control = list(ncycles = 10L))
+
+  # Check that the solution is as expected
+  check_solution(out)
+
+})
+
+# Abuse cases with simplex
+test_that("Simplex abuse cases", {
+
+  # Absolute tolerance is not a positive number
+  expect_error(optimizer(biquadratic, pars0, method = "simplex", control = list(atol = "hey")))
+  expect_error(optimizer(biquadratic, pars0, method = "simplex", control = list(atol = -1)))
+
+  # Relative tolerance is not a positive number
+  expect_error(optimizer(biquadratic, pars0, method = "simplex", control = list(rtol = "hey")))
+  expect_error(optimizer(biquadratic, pars0, method = "simplex", control = list(rtol = -1)))
+
+  # Function tolerance is not a positive number
+  expect_error(optimizer(biquadratic, pars0, method = "simplex", control = list(ftol = "hey")))
+  expect_error(optimizer(biquadratic, pars0, method = "simplex", control = list(ftol = -1)))
+
+  # Maximum number of iterations is not a positive integer
+  expect_error(optimizer(biquadratic, pars0, method = "simplex", control = list(maxiter = "hey")))
+  expect_error(optimizer(biquadratic, pars0, method = "simplex", control = list(maxiter = -1)))
+  expect_error(optimizer(biquadratic, pars0, method = "simplex", control = list(maxiter = 3.1459)))
+
+  # Parameter dodging is not a positive number
+  expect_error(optimizer(biquadratic, pars0, method = "simplex", control = list(delta = "hey")))
+  expect_error(optimizer(biquadratic, pars0, method = "simplex", control = list(delta = -1)))
+
+  # Dodge for zero-values is not a number
+  expect_error(optimizer(biquadratic, pars0, method = "simplex", control = list(dzero = NA)))
+  expect_error(optimizer(biquadratic, pars0, method = "simplex", control = list(dzero = "hey")))
+
+  # Geometric transformation parameter rho is not a positive number
+  expect_error(optimizer(biquadratic, pars0, method = "simplex", control = list(rho = "hey")))
+  expect_error(optimizer(biquadratic, pars0, method = "simplex", control = list(rho = -1)))
+
+  # Geometric transformation parameter chi is not a positive number
+  expect_error(optimizer(biquadratic, pars0, method = "simplex", control = list(chi = "hey")))
+  expect_error(optimizer(biquadratic, pars0, method = "simplex", control = list(chi = -1)))
+
+  # Geometric transformation parameter psi is not a positive number
+  expect_error(optimizer(biquadratic, pars0, method = "simplex", control = list(psi = "hey")))
+  expect_error(optimizer(biquadratic, pars0, method = "simplex", control = list(psi = -1)))
+
+  # Geometric transformation parameter sigma is not a positive number
+  expect_error(optimizer(biquadratic, pars0, method = "simplex", control = list(sigma = "hey")))
+  expect_error(optimizer(biquadratic, pars0, method = "simplex", control = list(sigma = -1)))
+
+  # Back-transformation is neither NULL nor a function (triggered from within simplex)
+  expect_error(simplex(biquadratic, pars0, control = list(untrans = "hey")))
+  expect_error(simplex(biquadratic, pars0, control = list(untrans = 1)))
+  expect_error(simplex(biquadratic, pars0, control = list(untrans = NA)))
+
+  # Transformation is neither NULL nor a function
+  expect_error(optimizer(biquadratic, pars0, method = "simplex", control = list(trans = "hey")))
+  expect_error(optimizer(biquadratic, pars0, method = "simplex", control = list(trans = 1)))
+  expect_error(optimizer(biquadratic, pars0, method = "simplex", control = list(trans = NA)))
+
+  # Transformation functions
+  trans <- function(x) x / 10
+  untrans <- function(x) x * 10
+
+  # Only one of those two functions is provided
+  expect_error(optimizer(biquadratic, pars0, method = "simplex", control = list(trans = trans)))
+  suppressMessages(expect_error(optimizer(biquadratic, pars0, method = "simplex", control = list(untrans = untrans), verbose = TRUE)))
+
+  # Wrong back-tranformation
+  wrong_untrans <- function(x) x * 5
+
+  # Both are provided but they are no inverse of each other
+  expect_error(optimizer(biquadratic, pars0, method = "simplex", control = list(trans = trans, untrans = wrong_untrans)))
+
+})
+
+# Simplex with verbose
+test_that("Simplex with verbose", {
+
+  # Find the maximum
+  out <- suppressMessages(optimizer(biquadratic, pars0, method = "simplex", verbose = TRUE, control = list(ncycles = 10L)))
+
+  # Check that the solution is as expected
+  check_solution(out)
+
+})
+
+# Simplex with verbose and no convergence
+test_that("Simplex with verbose and no convergence", {
+
+  # Find the maximum
+  out <- suppressMessages(optimizer(biquadratic, pars0, method = "simplex", verbose = TRUE))
+
+  # Check that the algorithm has not converged
+  expect_false(out$conv == 0L)
+
+})
+
+# Simplex with re-scaled parameters
+test_that("Simplex with re-scaled parameters", {
+
+  # Transformation functions
+  trans <- function(x) x / 10
+  untrans <- function(x) x * 10
+
+  # Try with a function to untransform the parameters
+  out <- optimizer(biquadratic, pars = c(x = 1, y = 1), method = "simplex", control = list(untrans = untrans, trans = trans, ncycles = 10L))
+
+  # Check that the solution is as expected
+  check_solution(out)
+
+})
+
+# Try a function that triggers the shrink operation in simplex
+test_that("Trigger simplex shrinkage", {
+
+  # Run an example that involves shrinking
+  out <- optimizer(
     biquadratic,
     pars = c(x = -10, y = -10),
-    extra = list(a = -1, b = -1)
+    method = "simplex",
+    control = list(delta = 0.1),
+    extra = list(a = -0.5, b = -0.5, c = 1, d = 1, e = 1, f = 1)
   )
 
-  # Check
+  # Make sure it has run
   expect_true(is.list(out))
-  expect_true(all(round(out$pars, 5L) == c(1, 1)))
-  expect_equal(out$fvalue, 2)
+
+})
+
+# TODO: Our simplex algorithm sucks.
+
+# Simplex with one-parameter function
+test_that("Simplex with one parameter", {
+
+  # Function with one parameter
+  FUN <- function(x) -x^2
+
+  # Find its maximum
+  out <- optimizer(FUN, pars = 0, method = "simplex")
+
+  # Make sure we have found it
+  expect_equal(out$pars, 0)
+  expect_equal(out$fvalue, 0)
   expect_equal(out$conv, 0L)
 
 })
 
-# Check that we can find the maximum of a well-known function
-test_that("Optimizer on bivariate quadratic formula", {
+# Simplex when infinity is reached
+test_that("Simplex with infinity", {
 
-  # Find the parameter values that maximize the function
-  out <- optimizer(
-    biquadratic,
-    pars = c(x = -10, y = -10),
-    extra = list(a = -1, b = -1),
-    method = "simplex",
-    control = list(rtol = 1e-6, ftol = 1e-7, atol = 1e-9, ncycles = 100L)
-  )
+  # Square function
+  FUN <- function(x) x^2
 
-  # Check that we have found the right maximum
-  expect_true(all(round(out$pars, 3L) == 1))
-  expect_equal(round(out$fvalue, 6L), 2)
+  # Run the optimizer
+  out <- optimizer(FUN, pars = 10, method = "simplex")
+
+  # Hopefully the maximum is infinite
+  expect_equal(out$fvalue, Inf)
+  expect_equal(out$conv, 0L)
 
 })
 
-# Check control option setters
-test_that("Control options", {
-
-  # Example option
-  options <- list(maxiter = 666L)
-
-  # For simplex or subplex
-  control1 <- make_control(options, method = "simplex")
-  control2 <- make_control(options, method = "subplex")
-
-  # Check that the right options are generated
-  expect_true(all(names(control1) == names(get_default_options_simplex())))
-  expect_true(all(names(control2) == names(get_default_options_subplex())))
-
-  # For the optimizer as well
-  control3 <- make_control(options, method = "simplex", meta = TRUE)
-
-  # Check that the options contain the optimizer-specific ones
-  expect_true(all(names(get_default_options_optimizer()) %in% names(control3)))
-
-  # Check values have been correctly updated
-  expect_true(all(c(control1$maxiter, control2$maxiter, control3$maxiter) == 666L))
-
-  # Try with unknown option
-  control4 <- make_control(list(mojo = "jojo"), method = "simplex")
-
-  # Make sure it was not added
-  expect_false("mojo" %in% names(control4))
-
-})
+# TODO: Go over names of tests across the entire package.

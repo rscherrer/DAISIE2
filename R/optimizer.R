@@ -1,3 +1,16 @@
+# Perform argument checks
+check_args <- function(fun, pars, control, extra, verbose) {
+
+  # Check
+  testit::assert(is.function(fun))
+  testit::assert(is_numeric_vector(pars))
+  testit::assert(is.list(control))
+  testit::assert(length(control) == 0L | !is.null(names(control)))
+  testit::assert(is.list(extra))
+  testit::assert(is_yes_no(verbose))
+
+}
+
 # Default options for simplex
 get_default_options_simplex <- function() {
 
@@ -10,8 +23,6 @@ get_default_options_simplex <- function() {
 
     # Maximum number of iterations
     maxiter = 1000L,
-
-    # TODO: Previously 1000 * round((1.25)^npars for simplex
 
     # By how much to shift the initial guesses to initialize the simplex (e.g. 0.05 for 5%)
     delta = 0.05,
@@ -68,11 +79,12 @@ get_default_options_optimizer <- function() {
 }
 
 # Function to set the control options
-make_control <- function(options, method, meta = FALSE) {
+make_control <- function(options, method, meta = FALSE, verbose = FALSE) {
 
   # options: named list of user-specified options
   # method: the algorithm to use
   # meta: whether to append general optimizer options
+  # verbose: whether to display messages
 
   # Note: calling the algorithm from within the optimizer allows to run it
   # for multiple cycles, but the optimizer needs its own extra options.
@@ -82,6 +94,7 @@ make_control <- function(options, method, meta = FALSE) {
   testit::assert(is.character(method))
   testit::assert(method %in% c("simplex", "subplex"))
   testit::assert(is_yes_no(meta))
+  testit::assert(is_yes_no(verbose))
 
   # Default control parameters
   control <- switch(
@@ -99,11 +112,22 @@ make_control <- function(options, method, meta = FALSE) {
   # Check names in the input
   testit::assert(!is.null(names(options)))
 
-  # Or if no known options are specified
-  if (!any(names(options) %in% names(control))) return(control)
+  # Are there any unknown options?
+  is_unknown <- !(names(options) %in% names(control))
 
-  # TODO: Maybe issue a message or warning when verbose to say that some
-  # control option was ignored (same in simplex and subplex).
+  # If needed...
+  if (verbose & any(is_unknown)) {
+
+    # Identify them
+    unknown_options <- names(options)[is_unknown]
+
+    # Tell the user (those may be typos)
+    message("Unknown option(s) (will be ignored): ", paste(unknown_options, collapse = " "))
+
+  }
+
+  # If no known options are specified, exit
+  if (sum(is_unknown) == length(is_unknown)) return(control)
 
   # Update non-default parameters
   control[names(options)] <- options
@@ -119,11 +143,12 @@ check_trans <- function(trans, untrans) {
   # untrans: its inverse
 
   # Transformation functions must be either functions or nothing
-  testit::assert(is.function(trans) | is.null(trans))
-  testit::assert(is.function(untrans) | is.null(untrans))
+  if (!is.function(trans) & !is.null(trans)) stop("trans must be NULL or a function")
+  if (!is.function(untrans) & !is.null(untrans)) stop("untrans must be NULL or a function")
 
   # If one transformation is provided then both must be
-  testit::assert(is.function(trans) == is.function(untrans))
+  if (is.function(trans) != is.function(untrans))
+    stop("both trans and untrans must be provided, or none")
 
   # Exit now if not provided
   if (is.null(trans)) return()
@@ -132,7 +157,7 @@ check_trans <- function(trans, untrans) {
   dummy <- 0.9
 
   # They must be inverse of each other (try with a dummy value)
-  testit::assert(trans(untrans(dummy)) == dummy)
+  if (trans(untrans(dummy)) != dummy) stop("untrans is not the inverse function of trans")
 
 }
 
@@ -157,18 +182,39 @@ check_control_simplex <- function(control) {
   with(control, {
 
     # Perform checks
-    testit::assert(is_number(rtol, sign = 1))
-    testit::assert(is_number(ftol, sign = 1))
-    testit::assert(is_number(atol, sign = 1))
-    testit::assert(is_number(maxiter, integer = TRUE, sign = 1))
-    testit::assert(is_number(delta, sign = 1))
-    testit::assert(is_number(dzero))
-    testit::assert(all(is_number(c(rho, chi, psi, sigma), scalar = FALSE, sign = 1)))
+    if (!is_positive(rtol)) stop("rtol must be a positive number")
+    if (!is_positive(ftol)) stop("ftol must be a positive number")
+    if (!is_positive(atol)) stop("atol must be a positive number")
+    if (!is_positive_integer(maxiter)) stop("maxiter must be a positive integer")
+    if (!is_positive(delta)) stop("delta must be a positive number")
+    if (!is_number(dzero)) stop("dzero must be a number")
+    if (!is_positive(rho)) stop("rho must be a positive number")
+    if (!is_positive(chi)) stop("chi must be a positive number")
+    if (!is_positive(psi)) stop("psi must be a positive number")
+    if (!is_positive(sigma)) stop("sigma must be a positive number")
 
     # Check the transformation functions
     check_trans(trans, untrans)
 
   })
+}
+
+# Function to assemble the output of the optimizer in a list
+prepare_output <- function(pars, fvalue, conv, untrans) {
+
+  # pars: the vector of parameters
+  # fvalue: function value for those parameters
+  # conv: convergence code (0 if yes, -1 if iterations exceeded, plus others)
+  # untrans: function to untransform the parameters if re-scaled
+
+  # Note: convergence can be zero or minus one for both simplex and subplex
+  # but subplex offers other non-convergence codes (see ?subplex::subplex).
+
+  list(
+    pars = if (is.null(untrans)) pars else untrans(pars),
+    fvalue = fvalue,
+    conv = conv
+  )
 }
 
 # Function to return a list of information for a new vertex
@@ -183,8 +229,23 @@ new_vertex <- function(vertex, fvalue, how) {
 
 }
 
+# Check a function value and error if needed
+check_fvalue <- function(f) {
+
+  # Error if needed
+  if (is.na(f)) stop("Problem encountered in function evaluation.")
+
+  # TODO: Any other actions in case of NA? Like early exit? With -Inf log-lik.?
+
+}
+
 # Function to update the worst vertex in the simplex
-get_updated_vertex <- function(x, xbar, fun, fmin, fstm, fmax, rho, chi, psi, sigma, untrans = NULL, extra = list()) {
+get_updated_vertex <- function(
+
+  x, xbar, fun, fmin, fstm, fmax, rho, chi, psi, sigma,
+  untrans = NULL, extra = list()
+
+) {
 
   # x: coordinates of the worst vertex
   # xbar: centroid of the edge to flip along
@@ -211,13 +272,12 @@ get_updated_vertex <- function(x, xbar, fun, fmin, fstm, fmax, rho, chi, psi, si
   # Find the reflection of the worst point wrt the centroid
   xr <- (1 + rho) * xbar - rho * x
   fxr <- -call_fun(fun, xr, extra, untrans)
+  check_fvalue(fxr)
 
   # TODO: Does that mean we can make it work with lists of parameters?
 
   # Set reflection as our new prospect
   out <- new_vertex(xr, fxr, how = "reflect")
-
-  # TODO: Sometimes the function values are not numbers, what do we do then?
 
   # If the reflection is a new minimum...
   if (fxr < fmin) {
@@ -225,6 +285,7 @@ get_updated_vertex <- function(x, xbar, fun, fmin, fstm, fmax, rho, chi, psi, si
     # Expand it to see if we can minimize further
     xe <- (1 + rho * chi) * xbar - rho * chi * x
     fxe <- -call_fun(fun, xe, extra, untrans)
+    check_fvalue(fxe)
 
     # Return the expansion if smaller
     if (fxe < fxr) return(new_vertex(xe, fxe, how = "expand"))
@@ -243,6 +304,7 @@ get_updated_vertex <- function(x, xbar, fun, fmin, fstm, fmax, rho, chi, psi, si
     # Contract the worst vertex
     xco <- (1 + psi * rho) * xbar - psi * rho * x
     fxco <- -call_fun(fun, xco, extra, untrans)
+    check_fvalue(fxco)
 
     # Keep the contraction if it does better
     if (fxco <= fxr) return(new_vertex(xco, fxco, how = "contract_outside"))
@@ -255,6 +317,7 @@ get_updated_vertex <- function(x, xbar, fun, fmin, fstm, fmax, rho, chi, psi, si
   # If the reflection was the worst, then compute the inside contraction
   xci <- (1 - psi) * xbar + psi * x
   fxci <- -call_fun(fun, xci, extra, untrans)
+  check_fvalue(fxci)
 
   # Keep this contraction if it does better
   if (fxci < fmax) return(new_vertex(xci, fxci, how = "contract_inside"))
@@ -265,40 +328,33 @@ get_updated_vertex <- function(x, xbar, fun, fmin, fstm, fmax, rho, chi, psi, si
 }
 
 # Function to compute (Nelder-Mead) simplex optimization
-simplex <- function(fun, pars, control = list(), extra = list()) {
+simplex <- function(fun, pars, control = list(), extra = list(), verbose = FALSE) {
 
   # fun: the function to maximize
   # pars: vector of parameters to optimize (initial guesses, can be named)
   # control: a list of named options for the algorithm, as defined in control()
-  # extra: named list of extra arguments of the function to optimize
+  # extra: (named) list of extra arguments of the function to optimize
+  # verbose: whether to display messages
 
   # Note: here we assume that the function to optimize takes a vector of
   # parameters as one of its arguments ("pars"), and those are the parameters
   # to optimize. The extra parameters in "extra" should be named so they can
   # be matched to the right argument in the function. Once those are passed,
   # the parameters to optimize will be passed to the first argument not yet
-  # passed in the function to optimize.
+  # passed in the function to optimize. If the arguments in "extra" are not
+  # named, they will be passed in order to the function.
 
-  # TODO: Specify starting values, stop if not.
-
-  # TODO: Verbose.
-
-  # Checks
-  testit::assert(is.function(fun))
-  testit::assert(is_number(pars, scalar = FALSE))
-
-  # Number of parameters (i.e. dimensions)
-  npars <- length(pars)
+  # Check arguments in common with other optimizer functions
+  check_args(fun, pars, control, extra, verbose)
 
   # Update default options with user choices
-  control <- make_control(control, method = "simplex")
+  control <- make_control(control, method = "simplex", verbose = verbose)
 
   # Check the control parameters
   check_control_simplex(control)
 
-  # Check that the extra arguments are a list, named if needed
-  testit::assert(is.list(extra))
-  if (length(extra) > 0L) testit::assert(!is.null(names(extra)))
+  # Number of parameters (i.e. dimensions)
+  npars <- length(pars)
 
   # Number of vertices
   nvertices <- npars + 1L
@@ -359,13 +415,14 @@ simplex <- function(fun, pars, control = list(), extra = list()) {
   # Add parameter names to the simplex if needed
   if (!is.null(names(pars))) rownames(V) <- names(pars)
 
-  # TODO: [URGENT] We need to pass untransformed parameters to the function.
-
   # Compute the function for each vertex
   fvalues <- apply(V, 2L, \(x) { -call_fun(fun, x, extra, untrans) })
 
   # Note: this algorithm maximizes a function by finding the minimum
   # of its negative.
+
+  # Check that all could be computed
+  for (f in fvalues) check_fvalue(f)
 
   # Reorder vertices from minimum to maximum function value
   jj <- order(fvalues)
@@ -440,11 +497,20 @@ simplex <- function(fun, pars, control = list(), extra = list()) {
 
       # Note: we force into a matrix in case there is only one element.
 
+      # Check function values for problems
+      for (f in fvalues) check_fvalue(f)
+
+      # Check parameter values for problems
+      testit::assert(all(apply(as.matrix(V[, kk]), 2L, is_numeric_vector)))
+
     } else {
 
       # Otherwise update the worst vertex
       V[, nvertices] <- new_vertex$vertex
       fvalues[nvertices] <- new_vertex$fvalue
+
+      # Check parameter values for problems
+      testit::assert(is_numeric_vector(V[, nvertices]))
 
     }
 
@@ -454,6 +520,22 @@ simplex <- function(fun, pars, control = list(), extra = list()) {
     if (npars == 1L) V <- matrix(V, nrow = npars)
     fvalues <- fvalues[jj]
 
+    # Verbose if needed
+    if (verbose) {
+
+      # Extract elements to display
+      best_pars <- if (is.null(untrans)) V[, 1] else untrans(V[, 1])
+      best_fvalue <- -fvalues[1]
+
+      # Display
+      message(
+        "Iter. ", iter,
+        ", oper.: ", new_vertex$how,
+        ", param.: ", paste(best_pars, collapse = ", "),
+        ", value: ", best_fvalue
+      )
+    }
+
     # Stop if we reached too large negative numbers
     if (any(fvalues == -Inf)) break
 
@@ -462,21 +544,12 @@ simplex <- function(fun, pars, control = list(), extra = list()) {
 
   }
 
-  # Return...
-  return(list(
+  # Verbose if needed
+  if (verbose & iter <= control$maxiter) message("Optimization terminated successfully.")
+  if (verbose & iter > control$maxiter) message("Maximum number of iterations exceeded")
 
-    # The best parameters found and their associated function value
-    pars = V[, 1],
-    fvalue = -fvalues[1],
-
-    # Whether convergence has been reached (code zero if yes)
-    conv = as.integer(iter > control$maxiter)
-
-  ))
-
-  # TODO: Figure why many outputs are wrapped in invisible().
-
-  # TODO: Make simplex() its own package? Or have a precise help file and export it.
+  # Return output
+  return(prepare_output(V[, 1], -fvalues[1], -as.integer(iter > control$maxiter), untrans))
 
 }
 
@@ -498,33 +571,29 @@ check_control_subplex <- function(control) {
   with(control, {
 
     # Perform checks
-    testit::assert(is_positive(atol))
-    testit::assert(is_positive(rtol))
-    testit::assert(is_positive_integer(maxiter, strict = TRUE))
-    testit::assert(is_number(jitter))
-    testit::assert(is.null(untrans) | is.function(untrans))
+    if (!is_positive(atol)) stop("atol must be a positive number")
+    if (!is_positive(rtol)) stop("rtol must be a positive number")
+    if (!is_positive_integer(maxiter)) stop("maxiter must be a positive integer")
+    if (!is_number(jitter)) stop("jitter must be a number")
+    if (!is.null(untrans) & !is.function(untrans)) stop("untrans must be NULL or a function")
 
   })
 }
 
 # Wrapper around a function that implements subplex optimization
-subplex <- function(fun, pars, control = list(), extra = list()) {
+subplex <- function(fun, pars, control = list(), extra = list(), verbose = FALSE) {
 
   # fun: the function to maximize
   # pars: vector of parameters to optimize (initial guesses, can be named)
   # control: a list of named options for the algorithm, as defined in control()
   # extra: named list of extra arguments of the function to optimize
+  # verbose: whether to display messages
 
-  # Checks
-  testit::assert(is.function(fun))
-  testit::assert(is_number(pars, scalar = FALSE))
-
-  # Check that the extra arguments are a list, named if needed
-  testit::assert(is.list(extra))
-  if (length(extra) > 0L) testit::assert(!is.null(names(extra)))
+  # Check arguments in common with other optimizer functions
+  check_args(fun, pars, control, extra, verbose)
 
   # Update default options with user choices
-  control <- make_control(control, method = "subplex")
+  control <- make_control(control, method = "subplex", verbose = verbose)
 
   # Check the control parameters
   check_control_subplex(control)
@@ -537,6 +606,18 @@ subplex <- function(fun, pars, control = list(), extra = list()) {
 
   # Prepare the function to minimize (in form expected by subplex)
   this_fun <- function(pars, extra, untrans) { -call_fun(fun, pars, extra, untrans) }
+
+  # If the optimization is not even to be started...
+  if (control$maxiter == 0L) {
+
+    # Compute function value
+    fvalue <- this_fun(pars, extra, control$untrans)
+    check_fvalue(fvalue)
+
+    # Early exit with convergence code for max. iterations elapsed
+    return(prepare_output(pars, -fvalue, conv = -1, untrans = control$untrans))
+
+  }
 
   # Pass all that to the subplex routine
   out <- subplex::subplex(
@@ -551,10 +632,8 @@ subplex <- function(fun, pars, control = list(), extra = list()) {
 
   )
 
-  # TODO: Warnings were suppressed in original code.
-
   # Combine the relevant output in a list
-  return(with(out, list(pars = par, fvalue = -value, conv = convergence)))
+  return(with(out, prepare_output(par, -value, convergence, untrans)))
 
 }
 
@@ -567,7 +646,7 @@ check_control_optimizer <- function(control) {
   testit::assert(is.list(control))
 
   # Names of the control parameters
-  control_names <- c("ncycles", "ctol")
+  control_names <- c("ncycles", "ctol", "untrans")
 
   # Check that they are all here
   testit::assert(all(control_names %in% names(control)))
@@ -576,38 +655,68 @@ check_control_optimizer <- function(control) {
   with(control, {
 
     # Check that they are fine
-    testit::assert(is_positive_integer(ncycles, strict = TRUE))
-    testit::assert(is_positive(ctol))
+    if (!is_positive_integer(ncycles)) stop("ncycles must be a positive integer")
+    if (!is_positive(ctol)) stop("ctol must be a positive number")
+    if (!is.null(untrans) & !is.function(untrans)) stop("untrans must be NULL or a function")
 
   })
-
-  # TODO: What if a tolerance parameter is zero?
 
 }
 
 # Routine to find the maximum of a function
-optimizer <- function(fun, pars, control = list(), method = "subplex", extra = list()) {
+optimizer <- function(
 
-  # TODO: Use ellipsis for transformation functions?
+  fun, pars, control = list(), extra = list(),
+  method = "subplex", verbose = FALSE, warn = TRUE
+
+) {
 
   # fun: the function to maximize
   # pars: vector of parameters to optimize (initial guesses, can be named)
   # control: a list of named options for the algorithm, as defined in control()
-  # method: which method (of "simplex" or "subplex") to use for optimization?
   # extra: named list of extra arguments of the function to optimize
+  # method: which method (of "simplex" or "subplex") to use for optimization?
+  # verbose: whether to display messages
+  # warn: whether to display warnings from the underlying algorithm
 
-  # Check the method supplied
-  testit::assert(is.character(method))
-  testit::assert(method %in% c("simplex", "subplex"))
+  # Checks
+  if (!is.function(fun)) stop("fun must be a function")
+  if (!is_numeric_vector(pars)) stop("pars must be a numeric vector")
+  if (!is.list(control)) stop("control must be a named list")
+  if (length(control) > 0L & is.null(names(control))) stop("control must be a named list")
+  if (!is.list(extra)) stop("extra must be a list")
+  if (!is_yes_no(verbose)) stop("verbose must be TRUE or FALSE")
+
+  # Methods allowed
+  methods <- c("simplex", "subplex")
+
+  # Check method
+  if (!is.character(method)) stop("method must be ", paste(methods, collapse = " or "))
+  if (!(method %in% methods)) stop("method must be ", paste(methods, collapse = " or "))
 
   # Update default options with user choices
-  control <- make_control(control, method, meta = TRUE)
+  control <- make_control(control, method, meta = TRUE, verbose = verbose)
 
   # Check the control parameters
   check_control_optimizer(control)
 
+  # Remove meta-parameters from the options being passed to the algorithm
+  control0 <- control[!(names(control) %in% c("ncycles", "ctol"))]
+
+  # Note: this is so the inner function does not complain about unknown
+  # parameters.
+
   # Set the optimizer
-  this_optimizer <- get(method)
+  this_optimizer <- this_optimizer0 <- get(method)
+
+  # Note: the transformation functions for re-scaled parameters are in
+  # the control options because we want the different algorithms (subplex,
+  # simplex) to take the same number of arguments so they can be called using
+  # get() easily (and e.g. simplex takes one more transformation function
+  # than subplex).
+
+  # Turn off warnings if needed
+  if (!warn) this_optimizer <- function(...) suppressWarnings(this_optimizer0(...))
 
   # Initialize counter
   cycle <- 1L
@@ -615,21 +724,36 @@ optimizer <- function(fun, pars, control = list(), method = "subplex", extra = l
   # Initialize function value (to check convergence)
   lastf <- Inf
 
+  # Compute function value in case of zero cycle
+  fvalue <- call_fun(fun, pars, extra, control$untrans)
+  check_fvalue(fvalue)
+
+  # Output to return in case of zero cycle
+  out <- prepare_output(pars, -fvalue, conv = -1, control$untrans)
+
   # For each optimization cycle...
   while (cycle <= control$ncycles) {
 
+    # Verbose if needed
+    if (verbose) message("Cycle ", cycle)
+
     # Optimize the likelihood function
-    out <- this_optimizer(fun = fun, pars = pars, control = control, extra = extra)
+    out <- this_optimizer(fun = fun, pars = pars, control = control0, extra = extra, verbose = verbose)
 
     # Use optimized parameters as starting point for the next cycle
     pars <- out$pars
     newf <- out$fvalue
 
-    # Compute convergence criterion
-    has_conv <- abs(newf - lastf) < control$ctol
+    # Check function value for error
+    check_fvalue(newf)
 
-    # TODO: This tolerance is the absolute tolerance also used in downstream
-    # functions in the original code.
+    # Exit the loop if function values are not comparable
+    if (is.nan(newf - lastf)) break
+
+    # Note: e.g. if they are both infinite and of the same sign.
+
+    # Compute convergence criterion between cycles
+    has_conv <- abs(newf - lastf) <= control$ctol
 
     # Break the loop if converged
     if (has_conv) break
@@ -642,8 +766,15 @@ optimizer <- function(fun, pars, control = list(), method = "subplex", extra = l
 
   }
 
-  # TODO: Message saying whether convergence is good or not.
+  # Non-convergence criterion
+  non_conv <- verbose & cycle > control$ncycles & out$conv != 0L
+
+  # Verbose if needed
+  if (verbose)
+    message(ifelse(non_conv, "More cycles in optimization recommended.", "No more cycles needed."))
 
   return(out)
 
 }
+
+# TODO: Verify punctuation in messages at the end.

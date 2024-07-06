@@ -176,6 +176,6 @@ daisie_ml <- function(
   # TODO: Add verbose to the optimizer, or choose where to have it at least.
 
   # Optimize
-  optimizer(calc_loglik, pars, control_ml, method, extra)
+  optimizer(calc_loglik, pars, control_ml, extra, method)
 
 }
