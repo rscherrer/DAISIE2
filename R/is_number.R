@@ -7,8 +7,6 @@ is_number <- function(x, scalar = TRUE, integer = FALSE, sign = NULL, strict = F
   # sign: number(s) that if provided, whether x is of the same sign (e.g. -1 or c(1, -1, 0))
   # strict: whether numbers should be considered only if strictly of that sign (i.e. zero does not count as positive and negative)
 
-  # TODO: Replace sign with positive in use cases of is_number.
-
   # Sanity check
   testit::assert(is.logical(scalar))
 
@@ -36,6 +34,11 @@ is_number <- function(x, scalar = TRUE, integer = FALSE, sign = NULL, strict = F
 
   # Only keep the elements of the required sign(s)
   is <- is & sign(x) == sign
+
+  # Revert any NAs to being FALSE
+  is[is.na(x)] <- FALSE
+
+  # Note: those hidden in an otherwise numeric vector will have been missed.
 
   return(is)
 
