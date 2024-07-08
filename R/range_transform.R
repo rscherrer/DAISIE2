@@ -6,22 +6,20 @@ range_transform <- function(x, xmax = 1, inverse = FALSE) {
   # inverse: whether to perform the inverse of the transformation
 
   # Check arguments
-  testit::assert(is_number(x, scalar = FALSE))
-  testit::assert(is_number(xmax))
-  testit::assert(is_yes_no(inverse))
+  if (!is_numeric_vector(x)) stop("x must be a numeric vector")
+  if (!is_positive(xmax)) stop("xmax must be a positive number")
+  if (is.infinite(xmax)) stop("xmax must be finite")
+  if (!is_yes_no(inverse)) stop("inverse must be TRUE or FALSE")
 
-  # If needed...
-  if (inverse) {
+  # Early exit with only zeros if needed
+  if (!inverse & xmax == 0) return(rep(0, length(x)))
 
-    # Perform the inverse transformation
-    y <- sign(x) * x / (xmax * sign(x) - x)
+  # Make sure all values are within the announced range
+  if (inverse & any(abs(x) > xmax)) stop("value(s) out of range detected")
 
-  } else {
-
-    # Otherwise perform the regular transformation
-    y <- xmax * sign(x) * x / (sign(x) + x)
-
-  }
+  # Expand or contract the range
+  y <- x * sign(x)
+  y <- if (inverse) y / (xmax * sign(x) - x) else y * xmax / (sign(x) + x)
 
   # Edge of the original and the new space
   xlim <- ifelse(inverse, xmax, Inf)
@@ -36,3 +34,6 @@ range_transform <- function(x, xmax = 1, inverse = FALSE) {
   return(y)
 
 }
+
+# Inverse function
+range_untransform <- function(x, xmax = 1) range_transform(x, xmax, inverse = TRUE)

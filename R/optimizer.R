@@ -58,8 +58,8 @@ get_default_options_subplex <- function() {
     # How much to dodge parameters equal to one half?
     jitter = 0,
 
-    # Function to untransform (re-scaled) parameters if needed
-    untrans = NULL
+    # Parameter re-scaling coefficients
+    scale = 1
 
   )
 }
@@ -200,7 +200,7 @@ check_control_simplex <- function(control) {
 }
 
 # Function to assemble the output of the optimizer in a list
-prepare_output <- function(pars, fvalue, conv, untrans) {
+prepare_output <- function(pars, fvalue, conv, untrans = NULL) {
 
   # pars: the vector of parameters
   # fvalue: function value for those parameters
@@ -353,6 +353,13 @@ simplex <- function(fun, pars, control = list(), extra = list(), verbose = FALSE
   # Check the control parameters
   check_control_simplex(control)
 
+  # Extract the transformation functions
+  trans <- control$trans
+  untrans <- control$untrans
+
+  # Transform the parameters
+  if (!is.null(trans)) pars <- trans(pars)
+
   # Number of parameters (i.e. dimensions)
   npars <- length(pars)
 
@@ -367,10 +374,6 @@ simplex <- function(fun, pars, control = list(), extra = list(), verbose = FALSE
 
   # Make a copy of the parameters
   dpars <- pars
-
-  # Extract the transformation functions
-  trans <- control$trans
-  untrans <- control$untrans
 
   # Untransform if needed
   if (!is.null(untrans)) dpars <- untrans(pars)
@@ -554,15 +557,16 @@ simplex <- function(fun, pars, control = list(), extra = list(), verbose = FALSE
 }
 
 # Function to check the control parameters
-check_control_subplex <- function(control) {
+check_control_subplex <- function(control, n) {
 
   # control: list containing the control parameters
+  # n: the number of parameters
 
   # Check that it is a list
   testit::assert(is.list(control))
 
   # Names of the control parameters
-  control_names <- c("atol", "rtol", "maxiter", "jitter", "untrans")
+  control_names <- c("atol", "rtol", "maxiter", "jitter", "scale")
 
   # Check that they are all here
   testit::assert(all(control_names %in% names(control)))
@@ -575,7 +579,8 @@ check_control_subplex <- function(control) {
     if (!is_positive(rtol)) stop("rtol must be a positive number")
     if (!is_positive_integer(maxiter)) stop("maxiter must be a positive integer")
     if (!is_number(jitter)) stop("jitter must be a number")
-    if (!is.null(untrans) & !is.function(untrans)) stop("untrans must be NULL or a function")
+    if (!is_numeric_vector(scale)) stop("scale must be a numeric vector")
+    if (!(length(scale) %in% c(1L, n))) stop("scale must be of length one or the number of parameters")
 
   })
 }
@@ -596,44 +601,49 @@ subplex <- function(fun, pars, control = list(), extra = list(), verbose = FALSE
   control <- make_control(control, method = "subplex", verbose = verbose)
 
   # Check the control parameters
-  check_control_subplex(control)
+  check_control_subplex(control, n = length(pars))
 
   # Dodge some values if needed
   pars[pars == 0.5] <- 0.5 - control$jitter
 
-  # Unpack the transformation function for re-scaled parameters if needed
-  untrans <- control$untrans
+  # TODO: Why is it here?
 
   # Prepare the function to minimize (in form expected by subplex)
-  this_fun <- function(pars, extra, untrans) { -call_fun(fun, pars, extra, untrans) }
+  this_fun <- function(pars, extra) { -call_fun(fun, pars, extra) }
 
   # If the optimization is not even to be started...
   if (control$maxiter == 0L) {
 
     # Compute function value
-    fvalue <- this_fun(pars, extra, control$untrans)
+    fvalue <- this_fun(pars, extra)
     check_fvalue(fvalue)
 
     # Early exit with convergence code for max. iterations elapsed
-    return(prepare_output(pars, -fvalue, conv = -1, untrans = control$untrans))
+    return(prepare_output(pars, -fvalue, conv = -1))
 
   }
+
+  # TODO: Add rescaling in subplex
 
   # Pass all that to the subplex routine
   out <- subplex::subplex(
 
     par = pars,
     fn = this_fun,
-    control = with(control, list(reltol = rtol, abstol = atol, maxit = maxiter)),
-    extra = extra,
-    untrans = untrans
+    control = with(control, list(
+      reltol = rtol,
+      abstol = atol,
+      maxit = maxiter,
+      parscale = scale
+    )),
+    extra = extra
 
     # Note: the control options have to be renamed for subplex::subplex
 
   )
 
   # Combine the relevant output in a list
-  return(with(out, prepare_output(par, -value, convergence, untrans)))
+  return(with(out, prepare_output(par, -value, convergence)))
 
 }
 
@@ -646,7 +656,7 @@ check_control_optimizer <- function(control) {
   testit::assert(is.list(control))
 
   # Names of the control parameters
-  control_names <- c("ncycles", "ctol", "untrans")
+  control_names <- c("ncycles", "ctol")
 
   # Check that they are all here
   testit::assert(all(control_names %in% names(control)))
@@ -657,11 +667,12 @@ check_control_optimizer <- function(control) {
     # Check that they are fine
     if (!is_positive_integer(ncycles)) stop("ncycles must be a positive integer")
     if (!is_positive(ctol)) stop("ctol must be a positive number")
-    if (!is.null(untrans) & !is.function(untrans)) stop("untrans must be NULL or a function")
 
   })
 
 }
+
+# TODO: What goes internal and what goes user-facing?
 
 # Routine to find the maximum of a function
 optimizer <- function(
@@ -725,11 +736,11 @@ optimizer <- function(
   lastf <- Inf
 
   # Compute function value in case of zero cycle
-  fvalue <- call_fun(fun, pars, extra, control$untrans)
+  fvalue <- call_fun(fun, pars, extra)
   check_fvalue(fvalue)
 
   # Output to return in case of zero cycle
-  out <- prepare_output(pars, -fvalue, conv = -1, control$untrans)
+  out <- prepare_output(pars, -fvalue, conv = -1)
 
   # For each optimization cycle...
   while (cycle <= control$ncycles) {

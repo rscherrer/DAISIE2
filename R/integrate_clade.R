@@ -67,6 +67,8 @@ integrate_clade <- function(
   # tmin: lower bound for an unknown colonization time
   # control: named list of control parameters for deSolve::ode
 
+  # TODO: Maybe no default parameters here?
+
   # The number of observed species we should get to at the end of the integration
   kend <- guess_k(tcol, tmax, tmin, branching_times)
 
@@ -75,10 +77,6 @@ integrate_clade <- function(
   if (is.null(tmin)) tmin <- 1
   if (is.null(tcol)) tcol <- 1
   if (length(branching_times) == 0L) branching_times <- 1
-
-  # Default control parameters if not supplied
-  if (length(control) == 0L)
-    control <- list(method = "lsodes", atol = 1e-16, rtol = 1e-10)
 
   # Number of possible numbers of unobserved species (incl. zero)
   N <- nmax + 1L

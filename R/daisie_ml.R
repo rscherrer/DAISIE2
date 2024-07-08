@@ -162,7 +162,7 @@ daisie_ml <- function(
   data, pars, island_age, M, nmax,
   control_ml = list(),
   control_ode = list(),
-  method = "subplex",
+  method = "subplex", # TODO: Make both options show
   verbose = FALSE
 
 ) {
@@ -186,11 +186,7 @@ daisie_ml <- function(
   if (!is_positive_integer(nmax)) stop("nmax must be a positive integer")
   if (!is.character(method)) stop("method must be a character string")
   if (!is_yes_no(verbose)) stop("verbose must be TRUE or FALSE")
-
-  # Check some likelihood maximization parameters
   if (!is.list(control_ml)) stop("control_ml must be a list")
-  if ("trans" %in% names(control_ml)) stop("trans cannot be provided in control_ml")
-  if ("untrans" %in% names(control_ml)) stop("untrans cannot be provided in control_ml")
 
   # Note: the rest will be checked by the optimizer.
 
@@ -215,18 +211,7 @@ daisie_ml <- function(
   # We must turn the parameters into a vector
   pars <- unlist(pars)
 
-  # Transformation functions
-  trans <- range_transform
-  untrans <- function(x) range_transform(x, inverse = TRUE)
-
-  # Add those functions to the control options
-  control_ml <- c(control_ml, trans = trans, untrans = untrans)
-
-  # Re-scale the parameters
-  pars <- trans(pars)
-
-  # TODO: Make the transformation optional? Or at least let the user choose
-  # wether they want the simplex to untransform.
+  # TODO: parameter transformation is only applicable to simplex.
 
   # Extra arguments (names as expected by the likelihood function)
   extra <- list(

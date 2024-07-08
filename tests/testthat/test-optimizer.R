@@ -100,15 +100,10 @@ test_that("Abuse cases", {
   expect_error(optimizer(biquadratic, pars0, control = list(jitter = NA)))
   expect_error(optimizer(biquadratic, pars0, control = list(jitter = "hey")))
 
-  # Back-transformation is neither NULL nor a function
-  expect_error(optimizer(biquadratic, pars0, control = list(untrans = "hey")))
-  expect_error(optimizer(biquadratic, pars0, control = list(untrans = 1)))
-  expect_error(optimizer(biquadratic, pars0, control = list(untrans = NA)))
-
-  # Specifically trigger that from within subplex
-  expect_error(subplex(biquadratic, pars0, control = list(untrans = "hey")))
-  expect_error(subplex(biquadratic, pars0, control = list(untrans = 1)))
-  expect_error(subplex(biquadratic, pars0, control = list(untrans = NA)))
+  # Scaling factors are not numbers in a vector of the right size
+  expect_error(optimizer(biquadratic, pars0, control = list(scale = NA)))
+  expect_error(optimizer(biquadratic, pars0, control = list(scale = "hey")))
+  expect_error(optimizer(biquadratic, pars0, control = list(scale = c(1, 1, 1, 1))))
 
 })
 
@@ -190,6 +185,14 @@ test_that("Zero iterations", {
   # Make sure nothing was done (and no convergence)
   expect_true(all(out$pars == pars0))
   expect_false(out$conv == 0L)
+
+})
+
+# Problematic output
+test_that("Problematic output encountered", {
+
+  # Artificially produce a problem encountered during function evaluation
+  expect_error(optimizer(function(x, y) NA, pars0))
 
 })
 

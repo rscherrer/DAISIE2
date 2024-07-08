@@ -17,10 +17,8 @@ test_that("Maximum likelihood", {
   # Run the optimization
   out <- daisie_ml(
     data, pars, island_age = -30, M = 100L, nmax = 10L,
-    control_ml = list(maxiter = 0L), method = "subplex"
+    control_ml = list(maxiter = 2L)
   )
-
-  # TODO: Errors when more iterations, figure out why.
 
   # Check names
   expect_true(all(names(out) == c("pars", "fvalue", "conv")))
@@ -73,10 +71,6 @@ test_that("Abuse", {
   # Control options are not in a list
   expect_error(daisie_ml(data, pars, island_age = -30, M = 100L, nmax = 10L, control_ml = "hi"))
   expect_error(daisie_ml(data, pars, island_age = -30, M = 100L, nmax = 10L, control_ml = 1))
-
-  # Transformation functions are provided as control options
-  expect_error(daisie_ml(data, pars, island_age = -30, M = 100L, nmax = 10L, control_ml = list(trans = function(x) x)))
-  expect_error(daisie_ml(data, pars, island_age = -30, M = 100L, nmax = 10L, control_ml = list(untrans = function(x) x)))
 
   # Data is not a list
   expect_error(daisie_ml(data = "hi", pars, island_age = -30, M = 100L, nmax = 10L))

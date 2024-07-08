@@ -60,9 +60,20 @@ test_that("Is it a number and what kind?", {
   expect_false(is_positive_integer(3.3))
 
   # And vectors
-  expect_true(all(is_positive_vector(c(3, 3))))
-  expect_false(all(is_positive_vector(c(3, -3))))
-  expect_false(all(is_negative_vector(c(3, -3))))
-  expect_true(all(is_negative_vector(-3, -3)))
+  expect_true(is_positive_vector(c(3, 3)))
+  expect_false(is_positive_vector(c(3, -3)))
+  expect_false(is_negative_vector(c(3, -3)))
+  expect_true(is_negative_vector(c(-3, -3)))
+  expect_true(is_numeric_vector(c(3, -3)))
+  expect_false(is_numeric_vector(c("hey", -3)))
+
+  # With NAs
+  expect_false(is_numeric_vector(c(NA, NA, NA)))
+  expect_false(is_numeric_vector(c(NA, -3)))
+  expect_false(is_positive_vector(c(NA, 3)))
+  expect_false(is_negative_vector(c(NA, 3)))
+  expect_true(is_numeric_vector(c(NA, -3), na = TRUE))
+  expect_true(is_positive_vector(c(NA, 3), na = TRUE))
+  expect_true(is_negative_vector(c(NA, -3), na = TRUE))
 
 })

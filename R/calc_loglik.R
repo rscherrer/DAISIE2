@@ -38,7 +38,7 @@ calc_loglik <- function(
         pars,
         nmax,
         is_present, tcol,
-        branching_times, tmin, tmax,
+        branching_times, tmax, tmin,
         control
       ))
 
