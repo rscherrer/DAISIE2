@@ -17,7 +17,7 @@ test_that("Maximum likelihood", {
   # Run the optimization
   out <- daisie_ml(
     data, pars, island_age = -30, M = 100L, nmax = 10L,
-    control_ml = list(maxiter = 2L)
+    control_ml = list(maxiter = 0L)
   )
 
   # Check names
@@ -47,6 +47,9 @@ test_that("Abuse", {
   expect_error(daisie_ml(data, list(lambda_c = -0.18, mu = 0.02, gamma = 0.02, lambda_a = 2), island_age = -30, M = 100L, nmax = 10L))
   expect_error(daisie_ml(data, list(lambda_c = "hello", mu = 0.02, gamma = 0.02, lambda_a = 2), island_age = -30, M = 100L, nmax = 10L))
   expect_error(daisie_ml(data, list(lambda_c = NA, mu = 0.02, gamma = 0.02, lambda_a = 2), island_age = -30, M = 100L, nmax = 10L))
+  expect_error(daisie_ml(data, list(lambda_c = 0.18, mu = -0.02, gamma = 0.02, lambda_a = 2), island_age = -30, M = 100L, nmax = 10L))
+  expect_error(daisie_ml(data, list(lambda_c = 0.18, mu = 0.02, gamma = -0.02, lambda_a = 2), island_age = -30, M = 100L, nmax = 10L))
+  expect_error(daisie_ml(data, list(lambda_c = 0.18, mu = 0.02, gamma = 0.02, lambda_a = -2), island_age = -30, M = 100L, nmax = 10L))
 
   # Island age is not a negative number
   expect_error(daisie_ml(data, pars, island_age = 2, M = 100L, nmax = 10L))
@@ -148,3 +151,6 @@ test_that("With simplex", {
   expect_false(out$conv == 0L)
 
 })
+
+# TODO: Think of a case where problematic parameters are found during
+# optimization (for now we very artificially produce this use case in tests).

@@ -1,30 +1,3 @@
-# Check parameters passed to a function
-check_pars <- function(pars) {
-
-  # pars: the parameters
-
-  # Must be a list
-  if (!is.list(pars)) stop("pars must be a list")
-
-  # Parameters must be named
-  if (is.null(names(pars))) stop("pars must be a named list")
-
-  # Parameter names
-  par_names <- c("lambda_c", "mu", "gamma", "lambda_a")
-
-  # Find mismatching items
-  is_unknown <- !(names(pars) %in% par_names)
-  is_missing <- !(par_names %in% names(pars))
-
-  # Error if any
-  if (any(is_unknown)) stop("Unknown parameter(s): ", paste(names(pars)[is_unknown], collapse = ", "))
-  if (any(is_missing)) stop("Missing parameter(s): ", paste(par_names[is_missing], collapse = ", "))
-
-  # Check that all parameters are positive numbers
-  if (!is_positive_vector(unlist(pars))) stop("pars must be a list of positive numbers")
-
-}
-
 # Function to check that the timings are good
 check_times <- function(tcol, tmin, tmax, branching_times, island_age, clade) {
 
@@ -208,10 +181,32 @@ daisie_ml <- function(
   # Check the parameters
   check_pars(pars)
 
+  # Compute initial likelihood
+  loglik <- calc_loglik(data, pars, island_age, M, nmax, control_ode)
+
+  # # If initial likelihood is too low...
+  # if (loglik == -Inf) {
+  #
+  #   # Issue a warning
+  #    warning(
+  #
+  #     "The initial parameter values have a likelihood that is equal to 0 or ",
+  #     "below machine precision. Try again with different initial values."
+  #
+  #   )
+  #
+  #   # Early exit
+  #   return(NULL)
+  #
+  #   # TODO: Maybe add empty data frame or something.
+  #
+  # }
+
+  # TODO: Go through what should be message, warning or error (also checking
+  # back with the original code).
+
   # We must turn the parameters into a vector
   pars <- unlist(pars)
-
-  # TODO: parameter transformation is only applicable to simplex.
 
   # Extra arguments (names as expected by the likelihood function)
   extra <- list(
@@ -219,8 +214,51 @@ daisie_ml <- function(
     control = control_ode
   )
 
+  # TODO: Non-oceanic scenario.
+
+  # TODO: Missing species.
+
+  # TODO: Species of different types.
+
+  # TODO: Allow for fixed parameters.
+
+  # TODO: Diversity-dependence.
+
+  # TODO: What is equilibrium optimization?
+
+
+  # TODO: Zero likelihood if the island emerges at present in the original code.
+
+  # TODO: In the original code, the function to check the probabilities in the
+  # system of differential equations returns a zero likelihood if the sum of
+  # probabilities (once the negative probabilities have been set to zero) are
+  # NA or equal to zero. That check is done before adding the sum of probabilities
+  # to the log-likelihood and normalizing the probabilities.
+
+  # TODO: See in print_parameters_and_loglik() if there is not something we
+  # should add as a warning.
+
+  # TODO: The original code approximates the probability of a mainland clade
+  # not leaving any descendent on the island at present (logp0), in case it
+  # needs to be corrected (criterion logp0 >= 0 & pars1[2]/pars1[1] > 100).
+  # See the implementation of approximate_logp0().
+
+  # TODO: If even the approximate likelihood of no descendant is zero or above,
+  # likelihood returned is zero (and say that approximation was not possible).
+
+
   # Optimize
-  optimizer(calc_loglik, pars, control_ml, extra, method, verbose, warn = FALSE)
+  out <- optimizer(calc_loglik, pars, control_ml, extra, method, verbose, warn = FALSE)
+
+  # If non-convergence...
+  if (out$conv != 0L) message(
+
+    # Issue a warning
+    "Optimization has not converged. Try again with different initial values."
+
+  )
+
+  return(out)
 
 }
 

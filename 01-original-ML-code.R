@@ -705,7 +705,6 @@ DAISIE_loglik <- function(
 
       lx <- min(
         1 + max(missnumspec, ceiling(K)),
-        DDD::roundn(pars2[1]) + missnumspec
       )
 
     } else {
@@ -985,7 +984,7 @@ DAISIE_loglik <- function(
 
     # CHANGE
 
-    print_parameters_and_loglik(
+    DAISIE::print_parameters_and_loglik(
       pars = c(stac, pars1[5:10]), # should this be 6:10, or 6:11?
       loglik = loglik,
       verbose = pars2[4],
@@ -1455,6 +1454,8 @@ DAISIE_loglik_all_choosepar <- function(
     }
 
     if (min(pars1) < 0 | (pars1[6] > 1 && non_oceanic_option == TRUE)) {
+
+      # TODO
 
       loglik <- -Inf
 

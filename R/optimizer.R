@@ -735,7 +735,7 @@ optimizer <- function(
   # Initialize function value (to check convergence)
   lastf <- Inf
 
-  # Compute function value in case of zero cycle
+  # Compute function value in case of zero cycles
   fvalue <- call_fun(fun, pars, extra)
   check_fvalue(fvalue)
 

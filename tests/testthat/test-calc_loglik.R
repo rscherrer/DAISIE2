@@ -19,3 +19,18 @@ test_that("Use case", {
   expect_true(is.numeric(calc_loglik(data, pars, island_age = -30, M = 100L, nmax = 10L)))
 
 })
+
+# Abuse cases
+test_that("Abuse", {
+
+  # Should error if parameters are not positive numbers
+  expect_error(calc_loglik(data, pars = list(lambda_c = NA, mu = 0.02, gamma = 0.02, lambda_a = 2), island_age = -30, M = 100L, nmax = 10L))
+  expect_error(calc_loglik(data, pars = list(lambda_c = 0.18, mu = -0.5, gamma = 0.02, lambda_a = 2), island_age = -30, M = 100L, nmax = 10L))
+  expect_error(calc_loglik(data, pars = list(lambda_c = 0.18, mu = -0.5, gamma = 0.02, lambda_a = 2), island_age = -30, M = 100L, nmax = 10L, optimized = TRUE))
+
+  # TODO: This last one should be superseded by a test coming directly from the
+  # maximization procedure.
+
+})
+
+
