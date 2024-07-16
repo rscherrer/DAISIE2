@@ -1,5 +1,7 @@
 ## Here we test the likelihood maximization routine.
 
+# TODO: Cover every case with both unit and behavior tests.
+
 # Fake clades
 blossom <- make_clade(is_present = FALSE, tcol = -10)
 bubbles <- make_clade(is_present = TRUE, tcol = -5, branching_times = c(-2, -1))
@@ -20,11 +22,28 @@ test_that("Maximum likelihood", {
     control_ml = list(maxiter = 0L)
   )
 
+  # TODO: Allow more iterations than that in the tests.
+
   # Check names
   expect_true(all(names(out) == c("pars", "fvalue", "conv")))
 
   # Should have converged
   expect_false(out$conv == 0L)
+
+})
+
+# Use case with conditioning
+test_that("Conditioning", {
+
+  # Various allowed non-default values
+  expect_true(is.list(daisie_ml(data, pars, island_age = -30, M = 100L, nmax = 10L, condition = 1L, control_ml = list(maxiter = 0L))))
+  expect_true(is.list(daisie_ml(data, pars, island_age = -30, M = 100L, nmax = 10L, condition = 2L, control_ml = list(maxiter = 0L))))
+
+  # TODO: Also allow for more iterations here.
+  # TODO: We run into positive probabilities here in the subplex as soon as we allow for more iterations...
+
+  # TODO: This could also be tested at the level of the likelihood function.
+  # Go through the tests and see where is best to test stuff (high or low level).
 
 })
 
@@ -62,6 +81,14 @@ test_that("Abuse", {
   # Possible number of unobserved species is not a positive integer
   expect_error(daisie_ml(data, pars, island_age = -30, M = 100L, nmax = -3L))
   expect_error(daisie_ml(data, pars, island_age = -30, M = 100L, nmax = 3.1459))
+
+  # Conditioning is wrong
+  expect_error(daisie_ml(data, pars, island_age = -30, M = 100L, nmax = 10L, condition = "hey"))
+  expect_error(daisie_ml(data, pars, island_age = -30, M = 100L, nmax = 10L, condition = -3L))
+  expect_error(daisie_ml(data, pars, island_age = -30, M = 100L, nmax = 10L, condition = 1.1))
+
+  # ... Or too large
+  expect_error(daisie_ml(data, pars, island_age = -30, M = 100L, nmax = 10L, condition = 10L))
 
   # Method is not a character string
   expect_error(daisie_ml(data, pars, island_age = -30, M = 100L, nmax = 10L, method = 1))
@@ -154,3 +181,18 @@ test_that("With simplex", {
 
 # TODO: Think of a case where problematic parameters are found during
 # optimization (for now we very artificially produce this use case in tests).
+
+# Verbose
+test_that("Verbose", {
+
+  # No verbose says nothing
+  expect_message(daisie_ml(data, pars, island_age = -30, M = 100L, nmax = 10L, control_ml = list(maxiter = 1L), method = "simplex"))
+
+  # Verbose says something
+  expect_no_message(daisie_ml(data, pars, island_age = -30, M = 100L, nmax = 10L, control_ml = list(maxiter = 1L), method = "simplex", verbose = FALSE))
+
+  # TODO: Could repeat this kind of test on lots of possible messages returned
+  # by the program depending on the optins we choose, not sure it is super
+  # useful like that...
+
+})

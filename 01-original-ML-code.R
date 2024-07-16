@@ -697,7 +697,7 @@ DAISIE_loglik <- function(
   if (lac == Inf & missnumspec == 0 & length(pars1) == 5) {
 
     if (verbose) warning('Infinite lambda detected')
-    loglik <- DAISIE_loglik_high_lambda(pars1, -brts, stac)
+    loglik <- DAISIE::DAISIE_loglik_high_lambda(pars1, -brts, stac)
 
   } else {
 
@@ -1173,7 +1173,7 @@ DAISIE_loglik_all <- function(
     # Some special case where we have to approximate
     if(logp0 >= 0 & pars1[2]/pars1[1] > 100) {
 
-      logp0 <- approximate_logp0(
+      logp0 <- DAISIE::approximate_logp0(
         gamma = pars1[4],
         mu = pars1[2],
         t = datalist[[1]]$island_age

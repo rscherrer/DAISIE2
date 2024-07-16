@@ -48,12 +48,79 @@ get_likelihood <- function(Qkn, QMkn, k, is_present, is_empty) {
 
 }
 
+# Function to calculate the likelihood in case of infinite cladogenesis
+clade_loglik_high_lambda_c <- function(
+
+  island_age, pars, is_present = FALSE, tcol = NULL, branching_times = c(),
+  tmax = NULL, tmin = NULL
+
+) {
+
+  # island_age: the age of the island
+  # pars: model parameters
+  # is_present: is the mainland colonist present on the island?
+  # tcol: known colonization time
+  # branching_times: vector of times of cladogenesis events
+  # tmax: upper bound for an unknown colonization time
+  # tmin: lower bound for an unknown colonization time
+
+  # TODO: Add check of arguments here
+
+  # Case of no descendants left on the island by the clade
+  if (is.null(tcol) & is.null(tmax)) return(-pars$gamma * time_points[1])
+
+  # Case of a non-endemic clade
+  if (is_present) return(-Inf)
+
+  # Case of a singleton
+  if (length(branching_times) == 0L) return(-Inf)
+
+  # Note: by now we are left with the case of an established clade with
+  # no mainland relative present. The colonization time may be known or
+  # unknown.
+
+  # Make a timeline of events
+  time_points <- c(island_age, tmax, tcol, tmin, branching_times)
+
+  # Number of time points
+  ntimes <- length(time_points)
+
+  # Useful number
+  N <- ntimes - 1L - is.null(tcol)
+
+  # Consecutive differences between time points up to the present
+  time_diffs <- abs(diff(c(time_points, 0)))
+
+  # Time to colonization (either known or upper bound)
+  ttcol <- time_diffs[1]
+
+  # Given the parameters...
+  loglik <- with(
+    pars,
+
+    # Start computing the likelihood
+    -pars$gamma * ttcol + log(N) + (N - 1) * log(pars$mu) + lgamma(N) - (N - 1) * log(N - 1) -
+      pars$mu / (N - 1) * sum(1:N * 0:(N - 1) * time_diffs[2:(N + 1) + is.null(tcol)])
+
+  )
+
+  # Case where the colonization time is known for sure
+  if (is.null(tcol)) return(loglik + log(pars$gamma))
+
+  # We should have an upper bound then
+  testit::assert(!is.null(tmax))
+
+  # Case if we only have an upper bound
+  return(loglik + log(1 - exp(-pars$gamma * time_diffs[2])))
+
+}
+
 # Function to compute the likelihood
-integrate_clade <- function(
+clade_loglik <- function(
 
   island_age, pars, nmax, is_present = FALSE, tcol = NULL,
   branching_times = c(), tmax = NULL, tmin = NULL,
-  control = list()
+  control = list(), precision = 0.01
 
 ) {
 
@@ -66,8 +133,31 @@ integrate_clade <- function(
   # tmax: upper bound for an unknown colonization time
   # tmin: lower bound for an unknown colonization time
   # control: named list of control parameters for deSolve::ode
+  # precision: tolerance to deviations from zero and one
+
+  # TODO: Bring precision upstairs.
 
   # TODO: Maybe no default parameters here?
+
+  # If cladogenesis is infinite...
+  if (pars$lambda_c == Inf) {
+
+    # TODO: Does not apply when there a missing species or island ontogeny.
+
+    # Issue a warning
+    warning("Infinite lambda_c detected")
+
+    # TODO: If verbose?
+
+    # Compute special likelihood for that clade
+    loglik <- clade_loglik_high_lambda_c(
+      island_age, pars, is_present, tcol, branching_times, tmax, tmin
+    )
+
+    # Early exit
+    return(loglik)
+
+  }
 
   # The number of observed species we should get to at the end of the integration
   kend <- guess_k(tcol, tmax, tmin, branching_times)
@@ -115,6 +205,9 @@ integrate_clade <- function(
 
   # Remove those that will never be reached (those are set as positive values)
   time_points <- time_points[time_points <= 0]
+
+  # TODO: Maybe rename this calc_clade_loglik? Cause the infinite case does
+  # not require integration.
 
   # Initialize an offset we will later add to the log-likelihood
   offset <- 0
@@ -290,6 +383,10 @@ integrate_clade <- function(
     # Strip down to a final vector of probabilities
     Q <- unname(Q[-1, -1])
 
+    # Check that probabilities are between zero and one (with imprecision)
+    testit::assert(all(Q > 0 - precision))
+    testit::assert(all(Q < 1 + precision))
+
     # Catch probabilities slightly smaller than zero
     Q[Q < 0] <- 0
 
@@ -348,6 +445,10 @@ integrate_clade <- function(
 
   # Add to it the offset we have prepared
   loglik <- loglik + offset
+
+  # Safeguards
+  if (is.na(loglik)) stop("Numerical problems encountered during likelihood-computation")
+  if (loglik > 0) stop("Likelihood greater than one found")
 
   return(loglik)
 

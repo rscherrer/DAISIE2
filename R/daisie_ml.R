@@ -132,7 +132,7 @@ check_data <- function(data, island_age) {
 # Function to find maximum likelihood estimates
 daisie_ml <- function(
 
-  data, pars, island_age, M, nmax,
+  data, pars, island_age, M, nmax, condition = 0L,
   control_ml = list(),
   control_ode = list(),
   method = "subplex", # TODO: Make both options show
@@ -145,10 +145,13 @@ daisie_ml <- function(
   # island_age: age of the island
   # M: size of the mainland pool
   # nmax: maximum allowed number of unobserved species
+  # condition: how to condition the probability of no descendants
   # control_ml: named list of options for the likelihood maximization algorithm
   # control_ode: named list of options for the integrator
   # method: which method ("simplex" or "subplex") to use for optimization?
   # verbose: whether to display messages
+
+  # TODO: Is that really what the condition is?
 
   # TODO: Implement correction for clades older than island age and sorting
   # of branching times, but those might be done in the preparation function.
@@ -157,6 +160,7 @@ daisie_ml <- function(
   if (!is_negative(island_age)) stop("island_age must be negative")
   if (!is_positive_integer(M, strict = TRUE)) stop("M must be a positive integer")
   if (!is_positive_integer(nmax)) stop("nmax must be a positive integer")
+  if (!is_positive_integer(condition)) stop("condition must be a positive integer")
   if (!is.character(method)) stop("method must be a character string")
   if (!is_yes_no(verbose)) stop("verbose must be TRUE or FALSE")
   if (!is.list(control_ml)) stop("control_ml must be a list")
@@ -181,8 +185,12 @@ daisie_ml <- function(
   # Check the parameters
   check_pars(pars)
 
+  # Check that the conditioning is right
+  if (condition > length(data))
+    stop("The minimum number of colonizations cannot be smaller than the number of immigrants.")
+
   # Compute initial likelihood
-  loglik <- calc_loglik(data, pars, island_age, M, nmax, control_ode)
+  loglik <- island_loglik(data, pars, island_age, M, nmax, control_ode)
 
   # # If initial likelihood is too low...
   # if (loglik == -Inf) {
@@ -211,7 +219,7 @@ daisie_ml <- function(
   # Extra arguments (names as expected by the likelihood function)
   extra <- list(
     data = data, island_age = island_age, M = M, nmax = nmax,
-    control = control_ode
+    control = control_ode, condition = condition, optimized = TRUE
   )
 
   # TODO: Non-oceanic scenario.
@@ -238,17 +246,9 @@ daisie_ml <- function(
   # TODO: See in print_parameters_and_loglik() if there is not something we
   # should add as a warning.
 
-  # TODO: The original code approximates the probability of a mainland clade
-  # not leaving any descendent on the island at present (logp0), in case it
-  # needs to be corrected (criterion logp0 >= 0 & pars1[2]/pars1[1] > 100).
-  # See the implementation of approximate_logp0().
-
-  # TODO: If even the approximate likelihood of no descendant is zero or above,
-  # likelihood returned is zero (and say that approximation was not possible).
-
 
   # Optimize
-  out <- optimizer(calc_loglik, pars, control_ml, extra, method, verbose, warn = FALSE)
+  out <- optimizer(island_loglik, pars, control_ml, extra, method, verbose, warn = FALSE)
 
   # If non-convergence...
   if (out$conv != 0L) message(

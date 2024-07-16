@@ -7,7 +7,7 @@ pars <- list(lambda_c = 0.18, mu = 0.02, gamma = 0.02, lambda_a = 2)
 test_that("Nothing on the island", {
 
   # Integrate a case with no extant clade
-  expect_true(is.numeric(integrate_clade(island_age = -30, pars, nmax = 10L)))
+  expect_true(is.numeric(clade_loglik(island_age = -30, pars, nmax = 10L)))
 
 })
 
@@ -15,7 +15,7 @@ test_that("Nothing on the island", {
 test_that("Singleton with known colonization", {
 
   # Integrate a case with one extant singleton
-  expect_true(is.numeric(integrate_clade(island_age = -30, pars, nmax = 10L, tcol = -10)))
+  expect_true(is.numeric(clade_loglik(island_age = -30, pars, nmax = 10L, tcol = -10)))
 
 })
 
@@ -23,7 +23,7 @@ test_that("Singleton with known colonization", {
 test_that("Singleton with known (minimum) colonization", {
 
   # Integrate a case with one extant singleton
-  expect_true(is.numeric(integrate_clade(island_age = -30, pars, nmax = 10L, tmax = -20, tmin = -10)))
+  expect_true(is.numeric(clade_loglik(island_age = -30, pars, nmax = 10L, tmax = -20, tmin = -10)))
 
 })
 
@@ -31,7 +31,7 @@ test_that("Singleton with known (minimum) colonization", {
 test_that("Singleton with unknown (max.) colonization", {
 
   # Integrate a case with one extant singleton
-  expect_true(is.numeric(integrate_clade(island_age = -30, pars, nmax = 10L, tmax = -20)))
+  expect_true(is.numeric(clade_loglik(island_age = -30, pars, nmax = 10L, tmax = -20)))
 
 })
 
@@ -39,7 +39,7 @@ test_that("Singleton with unknown (max.) colonization", {
 test_that("Established clade", {
 
   # Integrate a case with an extant clade
-  expect_true(is.numeric(integrate_clade(
+  expect_true(is.numeric(clade_loglik(
     island_age = -30, pars, nmax = 10L, tcol = -20,
     branching_times = c(-15, -10)
   )))
@@ -50,7 +50,7 @@ test_that("Established clade", {
 test_that("Established clade with unknown colonization", {
 
   # Integrate a case with an extant clade
-  expect_true(is.numeric(integrate_clade(
+  expect_true(is.numeric(clade_loglik(
     island_age = -30, pars, nmax = 10L, tmax = -20,
     branching_times = c(-15, -10)
   )))
@@ -61,7 +61,7 @@ test_that("Established clade with unknown colonization", {
 test_that("No wonky integration method", {
 
   # Check that
-  expect_error(integrate_clade(
+  expect_error(clade_loglik(
     island_age = -30, pars, nmax = 10L, control = list(method = "hello")
   ))
 
